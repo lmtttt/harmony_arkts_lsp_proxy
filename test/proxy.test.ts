@@ -66,3 +66,51 @@ describe('injectInitializationOptions', () => {
     expect(result.params.initializationOptions).toBeUndefined();
   });
 });
+
+describe('proxy integration', () => {
+  it('transforms initialize message end-to-end through streams', () => {
+    const payload: InitializationPayload = {
+      rootUri: 'file:///test/project',
+      lspServerWorkspacePath: '/test/project',
+      modules: [{
+        moduleName: 'entry',
+        modulePath: '/test/project/entry',
+        deviceType: ['phone'],
+        aceLoaderPath: '/sdk/js/framework/phone/ace-loader',
+        jsComponentType: 0,
+        sdkJsPath: '/sdk/js/api/phone/',
+        compatibleSdkLevel: '12',
+        apiType: 'Stage',
+      }],
+    };
+
+    // Simulate a real LSP initialize message
+    const lspMessage = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        processId: 5678,
+        rootUri: null,
+        capabilities: {
+          textDocument: {
+            hover: { contentFormat: ['markdown'] },
+          },
+        },
+      },
+    };
+
+    const result = injectInitializationOptions(lspMessage, payload);
+
+    // Verify the injected fields
+    expect(result.params.initializationOptions.rootUri).toBe('file:///test/project');
+    expect(result.params.initializationOptions.lspServerWorkspacePath).toBe('/test/project');
+    expect(result.params.initializationOptions.modules[0].apiType).toBe('Stage');
+
+    // Verify original fields are preserved
+    expect(result.params.processId).toBe(5678);
+    expect(result.params.capabilities.textDocument.hover.contentFormat).toEqual(['markdown']);
+    expect(result.id).toBe(1);
+    expect(result.method).toBe('initialize');
+  });
+});
