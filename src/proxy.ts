@@ -30,19 +30,27 @@ export function injectInitializationOptions(
   return message;
 }
 
+export interface ProxyHandle {
+  dispose: () => void;
+}
+
 export function createProxy(
   clientIn: NodeJS.ReadableStream,
   clientOut: NodeJS.WritableStream,
   aceProcess: ChildProcess,
   payload: InitializationPayload,
-): void {
+): ProxyHandle {
+  const aceIn = aceProcess.stdout;
+  const aceOut = aceProcess.stdin;
+  if (!aceIn || !aceOut) {
+    throw new Error('aceProcess must have both stdout and stdin streams');
+  }
+
   const clientConn: MessageConnection = createMessageConnection(
     new StreamMessageReader(clientIn),
     new StreamMessageWriter(clientOut),
   );
 
-  const aceIn = aceProcess.stdout!;
-  const aceOut = aceProcess.stdin!;
   const aceConn: MessageConnection = createMessageConnection(
     new StreamMessageReader(aceIn),
     new StreamMessageWriter(aceOut),
@@ -54,8 +62,8 @@ export function createProxy(
 
   clientConn.onRequest((method, params, token) => {
     if (method === 'initialize') {
-      const original = { jsonrpc: '2.0', id: 0, method, params };
-      const modified = injectInitializationOptions(original, payload);
+      const message = { method, params };
+      const modified = injectInitializationOptions(message, payload);
       return aceConn.sendRequest(method, modified.params, token);
     }
     return aceConn.sendRequest(method, params, token);
@@ -69,6 +77,25 @@ export function createProxy(
     return clientConn.sendRequest(method, params, token);
   });
 
+  aceConn.onError(() => {
+    clientConn.dispose();
+  });
+
+  clientConn.onError(() => {
+    aceConn.dispose();
+  });
+
+  aceProcess.on('exit', () => {
+    clientConn.dispose();
+  });
+
   clientConn.listen();
   aceConn.listen();
+
+  return {
+    dispose: () => {
+      clientConn.dispose();
+      aceConn.dispose();
+    },
+  };
 }
