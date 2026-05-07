@@ -1,0 +1,9 @@
+{
+  "arkts": {
+    "command": "arkts-lsp",
+    "extensionToLanguage": {
+      ".ets": "arkts",
+      ".d.ets": "arkts"
+    }
+  }
+}
