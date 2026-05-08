@@ -50,8 +50,14 @@ npm install -g arkts-lsp-proxy
 
 ### Claude Code
 
+在 Claude Code 中注册 marketplace 并安装插件：
+
 ```bash
-claude --plugin-dir /path/to/hm_lsp/plugin
+# 注册 marketplace
+claude marketplace add HelloiOS2014/harmony_arkts_lsp_proxy
+
+# 安装插件
+/plugin install arkts-lsp
 ```
 
 ### 环境变量
@@ -125,9 +131,11 @@ src/
 ├── ace-server.ts   ace-server 子进程生命周期管理
 ├── proxy.ts        LSP 消息代理，拦截 initialize 注入参数
 └── index.ts        入口，串联所有模块
-plugin/
-└── .claude-plugin/
-    └── plugin.json     插件清单 + lspServers 配置
+.claude-plugin/
+└── marketplace.json    marketplace 清单 + lspServers 配置
+plugins/
+└── arkts-lsp/
+    └── README.md       插件文档
 test/
 ├── env.test.ts
 ├── project.test.ts
