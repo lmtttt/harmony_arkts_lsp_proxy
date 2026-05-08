@@ -11,8 +11,12 @@
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src/ test/"
+    "lint": "eslint src/ test/",
+    "prepublishOnly": "npm run build && npm test"
   },
+  "files": [
+    "dist/"
+  ],
   "keywords": [
     "arkts",
     "lsp",
