@@ -77,13 +77,14 @@ export DEVECO_HOME=/opt/DevEco-Studio
 
 ## 使用
 
+插件安装后，打开 `.ets` 文件时 LSP 自动激活。首次启动会执行 `hvigor --sync` 初始化依赖映射（可能需要几分钟），后续有缓存会很快。
+
+也可以手动运行：
+
 ```bash
-# 在鸿蒙项目目录下直接运行
 cd /path/to/harmonyos/project
 arkts-lsp-proxy
 ```
-
-首次启动会执行 `hvigor --sync` 初始化依赖映射（可能需要几分钟），后续有缓存会很快。
 
 ## 平台支持
 
