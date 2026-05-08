@@ -84,11 +84,13 @@ export function createProxy(
     return clientConn.sendRequest(method, params, token);
   });
 
-  aceConn.onError(() => {
+  aceConn.onError((err) => {
+    process.stderr.write(`[arkts-lsp] ace connection error: ${err.message}\n`);
     clientConn.dispose();
   });
 
-  clientConn.onError(() => {
+  clientConn.onError((err) => {
+    process.stderr.write(`[arkts-lsp] client connection error: ${err.message}\n`);
     aceConn.dispose();
   });
 
