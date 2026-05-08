@@ -2,5 +2,5 @@
   "name": "arkts-lsp",
   "version": "0.1.0",
   "description": "ArkTS LSP proxy for Claude Code — bridges DevEco Studio's ace-server",
-  "lspServers": "./.lsp.json"
+  "lspServers": "../.lsp.json"
 }
