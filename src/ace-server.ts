@@ -1,9 +1,12 @@
 import { spawn, type ChildProcess } from 'child_process';
 import type { DevEcoEnv } from './env';
 
+export type ExitHandler = (code: number | null, signal: string | null) => void;
+
 export interface AceServerHandle {
   process: ChildProcess;
   kill: () => void;
+  onExit: (handler: ExitHandler) => void;
 }
 
 export function startAceServer(env: DevEcoEnv): AceServerHandle {
@@ -18,6 +21,8 @@ export function startAceServer(env: DevEcoEnv): AceServerHandle {
     },
   });
 
+  const exitHandlers: ExitHandler[] = [];
+
   child.stderr?.on('data', (data: Buffer) => {
     const msg = data.toString().trim();
     if (msg && !msg.includes('heartbeat')) {
@@ -27,12 +32,16 @@ export function startAceServer(env: DevEcoEnv): AceServerHandle {
 
   child.on('error', (err) => {
     process.stderr.write(`[arkts-lsp] ace-server error: ${err.message}\n`);
-    process.exit(1);
+    for (const handler of exitHandlers) {
+      handler(1, null);
+    }
   });
 
   child.on('exit', (code, signal) => {
     process.stderr.write(`[arkts-lsp] ace-server exited (code=${code}, signal=${signal})\n`);
-    process.exit(code ?? 1);
+    for (const handler of exitHandlers) {
+      handler(code, signal);
+    }
   });
 
   return {
@@ -41,6 +50,9 @@ export function startAceServer(env: DevEcoEnv): AceServerHandle {
       if (child.exitCode === null) {
         child.kill();
       }
+    },
+    onExit: (handler: ExitHandler) => {
+      exitHandlers.push(handler);
     },
   };
 }
