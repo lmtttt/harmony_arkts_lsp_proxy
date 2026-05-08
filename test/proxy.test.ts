@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { injectInitializationOptions, type InitializationPayload } from '../src/proxy';
+import { describe, it, expect, vi } from 'vitest';
+import { PassThrough } from 'stream';
+import { injectInitializationOptions, createProxy, type ProxyHandle, type InitializationPayload } from '../src/proxy';
+import type { ChildProcess } from 'child_process';
 
 describe('injectInitializationOptions', () => {
   const payload: InitializationPayload = {
@@ -112,5 +114,85 @@ describe('proxy integration', () => {
     expect(result.params.capabilities.textDocument.hover.contentFormat).toEqual(['markdown']);
     expect(result.id).toBe(1);
     expect(result.method).toBe('initialize');
+  });
+});
+
+describe('createProxy', () => {
+  function makeMockAceProcess(): { proc: ChildProcess; aceIn: PassThrough; aceOut: PassThrough } {
+    const aceIn = new PassThrough(); // ace stdout → client reads
+    const aceOut = new PassThrough(); // client writes → ace stdin
+    const proc = {
+      stdout: aceIn,
+      stdin: aceOut,
+      on: vi.fn(),
+      kill: vi.fn(),
+    } as unknown as ChildProcess;
+    return { proc, aceIn, aceOut };
+  }
+
+  it('returns a ProxyHandle with dispose()', () => {
+    const clientIn = new PassThrough();
+    const clientOut = new PassThrough();
+    const { proc } = makeMockAceProcess();
+
+    const handle = createProxy(clientIn, clientOut, proc, {
+      rootUri: 'file:///test',
+      lspServerWorkspacePath: '/test',
+      modules: [],
+    });
+
+    expect(handle).toBeDefined();
+    expect(handle.dispose).toBeInstanceOf(Function);
+    handle.dispose();
+  });
+
+  it('dispose() closes both connections without throwing', () => {
+    const clientIn = new PassThrough();
+    const clientOut = new PassThrough();
+    const { proc } = makeMockAceProcess();
+
+    const handle = createProxy(clientIn, clientOut, proc, {
+      rootUri: 'file:///test',
+      lspServerWorkspacePath: '/test',
+      modules: [],
+    });
+
+    expect(() => handle.dispose()).not.toThrow();
+  });
+
+  it('throws when aceProcess has no stdout', () => {
+    const clientIn = new PassThrough();
+    const clientOut = new PassThrough();
+    const proc = {
+      stdout: null,
+      stdin: new PassThrough(),
+      on: vi.fn(),
+    } as unknown as ChildProcess;
+
+    expect(() =>
+      createProxy(clientIn, clientOut, proc, {
+        rootUri: 'file:///test',
+        lspServerWorkspacePath: '/test',
+        modules: [],
+      })
+    ).toThrow('aceProcess must have both stdout and stdin streams');
+  });
+
+  it('throws when aceProcess has no stdin', () => {
+    const clientIn = new PassThrough();
+    const clientOut = new PassThrough();
+    const proc = {
+      stdout: new PassThrough(),
+      stdin: null,
+      on: vi.fn(),
+    } as unknown as ChildProcess;
+
+    expect(() =>
+      createProxy(clientIn, clientOut, proc, {
+        rootUri: 'file:///test',
+        lspServerWorkspacePath: '/test',
+        modules: [],
+      })
+    ).toThrow('aceProcess must have both stdout and stdin streams');
   });
 });
