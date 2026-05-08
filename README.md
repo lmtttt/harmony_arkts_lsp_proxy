@@ -50,24 +50,8 @@ npm install -g arkts-lsp-proxy
 
 ### Claude Code
 
-方式一：启动时加载插件
-
 ```bash
 claude --plugin-dir /path/to/hm_lsp/plugin
-```
-
-方式二：项目级配置，在项目根目录创建 `.claude/settings.json`：
-
-```json
-{
-  "lspServers": {
-    "arkts": {
-      "command": "arkts-lsp-proxy",
-      "languages": ["arkts"],
-      "fileExtensions": [".ets", ".d.ets"]
-    }
-  }
-}
 ```
 
 ### 环境变量
@@ -142,9 +126,8 @@ src/
 ├── proxy.ts        LSP 消息代理，拦截 initialize 注入参数
 └── index.ts        入口，串联所有模块
 plugin/
-├── .claude-plugin/
-│   └── plugin.json     插件元信息
-└── .lsp.json           Claude Code LSP 服务器配置
+└── .claude-plugin/
+    └── plugin.json     插件清单 + lspServers 配置
 test/
 ├── env.test.ts
 ├── project.test.ts
