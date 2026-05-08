@@ -42,23 +42,23 @@ arkts-lsp-proxy (Node.js 进程)
 
 ## 安装
 
+### Claude Code 插件（推荐）
+
+```bash
+# 注册 marketplace
+/plugin marketplace add HelloiOS2014/harmony_arkts_lsp_proxy
+
+# 安装插件
+/plugin install arkts-lsp
+```
+
+### npm 全局安装
+
 ```bash
 npm install -g arkts-lsp-proxy
 ```
 
 ## 配置
-
-### Claude Code
-
-在 Claude Code 中注册 marketplace 并安装插件：
-
-```bash
-# 注册 marketplace
-claude marketplace add HelloiOS2014/harmony_arkts_lsp_proxy
-
-# 安装插件
-/plugin install arkts-lsp
-```
 
 ### 环境变量
 
@@ -127,20 +127,26 @@ npm link
 ```
 src/
 ├── env.ts          DevEco Studio 环境发现
-├── project.ts      HarmonyOS 项目解析，构造 ace-server modules 参数
+├── project.ts      HarmonyOS 项目解析 + findProjectRoot 向上搜索
 ├── hvigor.ts       hvigor sync 缓存检查与执行
-├── ace-server.ts   ace-server 子进程生命周期管理
+├── ace-server.ts   ace-server 子进程生命周期管理（onExit 回调）
 ├── proxy.ts        LSP 消息代理，拦截 initialize 注入参数
 └── index.ts        入口，串联所有模块
 .claude-plugin/
 └── marketplace.json    marketplace 清单 + lspServers 配置
 plugins/
 └── arkts-lsp/
-    └── README.md       插件文档
+    ├── .claude-plugin/
+    │   └── plugin.json     插件清单
+    ├── .lsp.json           LSP 服务器配置
+    └── README.md           插件文档
 test/
 ├── env.test.ts
 ├── project.test.ts
+├── hvigor.test.ts
+├── ace-server.test.ts
 ├── proxy.test.ts
+├── index.test.ts
 └── fixtures/
 ```
 
