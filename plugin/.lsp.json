@@ -1,6 +1,6 @@
 {
   "arkts": {
-    "command": "arkts-lsp",
+    "command": "arkts-lsp-proxy",
     "extensionToLanguage": {
       ".ets": "arkts",
       ".d.ets": "arkts"
