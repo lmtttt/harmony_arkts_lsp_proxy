@@ -7,6 +7,13 @@ import {
 import type { ChildProcess } from 'child_process';
 import type { AceModule } from './project';
 
+export interface LspMessage {
+  jsonrpc?: string;
+  id?: number | string;
+  method?: string;
+  params?: Record<string, unknown>;
+}
+
 export interface InitializationPayload {
   rootUri: string;
   lspServerWorkspacePath: string;
@@ -14,9 +21,9 @@ export interface InitializationPayload {
 }
 
 export function injectInitializationOptions(
-  message: any,
+  message: LspMessage,
   payload: InitializationPayload,
-): any {
+): LspMessage {
   if (message.method === 'initialize' && message.params) {
     const params = { ...message.params };
     params.initializationOptions = {
