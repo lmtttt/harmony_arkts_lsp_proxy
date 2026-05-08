@@ -42,16 +42,34 @@ function main(): void {
   const ace = startAceServer(env);
 
   // Step 5: Set up LSP proxy
-  createProxy(process.stdin, process.stdout, ace.process, {
+  const proxy = createProxy(process.stdin, process.stdout, ace.process, {
     rootUri: project.rootUri,
     lspServerWorkspacePath: project.lspServerWorkspacePath,
     modules: project.modules,
   });
 
   // Step 6: Handle cleanup
-  process.on('SIGINT', () => ace.kill());
-  process.on('SIGTERM', () => ace.kill());
-  process.stdin.on('end', () => ace.kill());
+  const cleanup = () => {
+    proxy.dispose();
+    ace.kill();
+  };
+
+  process.on('SIGINT', () => {
+    cleanup();
+    process.exit(0);
+  });
+  process.on('SIGTERM', () => {
+    cleanup();
+    process.exit(0);
+  });
+  process.stdin.on('end', () => {
+    cleanup();
+  });
+
+  ace.onExit((code) => {
+    proxy.dispose();
+    process.exit(code ?? 1);
+  });
 }
 
 main();
