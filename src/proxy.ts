@@ -69,7 +69,7 @@ export function createProxy(
 
   clientConn.onRequest((method, params, token) => {
     if (method === 'initialize') {
-      const message = { method, params };
+      const message = { method, params: params as Record<string, unknown> };
       const modified = injectInitializationOptions(message, payload);
       return aceConn.sendRequest(method, modified.params, token);
     }
@@ -84,12 +84,12 @@ export function createProxy(
     return clientConn.sendRequest(method, params, token);
   });
 
-  aceConn.onError((err) => {
+  aceConn.onError(([err]) => {
     process.stderr.write(`[arkts-lsp] ace connection error: ${err.message}\n`);
     clientConn.dispose();
   });
 
-  clientConn.onError((err) => {
+  clientConn.onError(([err]) => {
     process.stderr.write(`[arkts-lsp] client connection error: ${err.message}\n`);
     aceConn.dispose();
   });
