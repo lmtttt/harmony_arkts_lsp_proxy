@@ -83,7 +83,12 @@ export function parseProject(projectRoot: string, sdkPath: string): ProjectConfi
       modules,
     };
   } catch (e) {
-    process.stderr.write(`[arkts-lsp] Failed to parse build-profile.json5: ${e}\n`);
+    process.stderr.write(`[arkts-lsp] Failed to parse build-profile.json5:\n`);
+    if (e instanceof Error) {
+      process.stderr.write(e.stack + '\n');
+    } else {
+      process.stderr.write(String(e) + '\n');
+    }
     return null;
   }
 }
