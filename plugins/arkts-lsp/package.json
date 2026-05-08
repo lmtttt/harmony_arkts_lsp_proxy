@@ -1,0 +1,7 @@
+{
+  "name": "arkts-lsp-deps",
+  "private": true,
+  "dependencies": {
+    "arkts-lsp-proxy": "latest"
+  }
+}

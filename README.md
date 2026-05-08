@@ -48,11 +48,11 @@ arkts-lsp-proxy (Node.js 进程)
 # 注册 marketplace
 /plugin marketplace add HelloiOS2014/harmony_arkts_lsp_proxy
 
-# 安装插件
+# 安装插件（首次使用时自动安装 arkts-lsp-proxy）
 /plugin install arkts-lsp
 ```
 
-### npm 全局安装
+### npm 全局安装（手动 CLI 使用）
 
 ```bash
 npm install -g arkts-lsp-proxy

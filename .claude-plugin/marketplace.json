@@ -14,7 +14,7 @@
       "category": "development",
       "lspServers": {
         "arkts": {
-          "command": "arkts-lsp-proxy",
+          "command": "${CLAUDE_PLUGIN_DATA}/node_modules/.bin/arkts-lsp-proxy",
           "extensionToLanguage": {
             ".ets": "arkts",
             ".d.ets": "arkts"

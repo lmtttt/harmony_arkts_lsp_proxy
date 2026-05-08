@@ -7,11 +7,7 @@ ArkTS language server for Claude Code — wraps DevEco Studio's ace-server with 
 
 ## Installation
 
-Install the proxy globally via npm:
-
-```bash
-npm install -g arkts-lsp-proxy
-```
+The plugin auto-installs `arkts-lsp-proxy` on first use via a SessionStart hook. No manual installation needed.
 
 ## Configuration
 
