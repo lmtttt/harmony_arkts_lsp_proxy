@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - hvigor sync with 24-hour cache freshness check
 - ace-server child process lifecycle management with `onExit` callback
 - LSP message proxy with `initialize` request interception and `initializationOptions` injection
-- Claude Code plugin integration via marketplace
+- Claude Code plugin integration via marketplace with auto-install (SessionStart hook + CLAUDE_PLUGIN_DATA)
 - Comprehensive test suite (env, project, hvigor, ace-server, proxy, index)
 - ESLint with typescript-eslint
 - .editorconfig
