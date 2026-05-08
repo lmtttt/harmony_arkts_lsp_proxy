@@ -33,7 +33,6 @@ const DEFAULT_PATHS: Record<string, string[]> = {
 };
 
 function resolveContentsPath(rawPath: string): string {
-  if (!IS_MAC) return rawPath;
   const lower = rawPath.toLowerCase();
   if (lower.endsWith('.app')) {
     return path.join(rawPath, 'Contents');
