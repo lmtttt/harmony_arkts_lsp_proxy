@@ -31,16 +31,17 @@ function constructModule(
   projectRoot: string,
   sdkPath: string,
   compatibleSdkLevel: string,
+  deviceTypes: string[],
 ): AceModule {
   const modulePath = path.resolve(projectRoot, srcPath);
-  const deviceType = 'phone';
+  const deviceType = deviceTypes[0] || 'phone';
   const sdkJsPath = path.join(sdkPath, 'js', 'api', deviceType) + path.sep;
   const aceLoaderPath = path.join(sdkPath, 'js', 'framework', deviceType, 'ace-loader');
 
   return {
     moduleName: name,
     modulePath,
-    deviceType: [deviceType],
+    deviceType: deviceTypes.length > 0 ? deviceTypes : ['phone'],
     aceLoaderPath,
     jsComponentType: 0,
     sdkJsPath,
@@ -76,6 +77,13 @@ export function parseProject(projectRoot: string, sdkPath: string): ProjectConfi
       ? extractCompatibleSdkLevel(firstProduct.compatibleSdkVersion)
       : '12';
 
+    // Derive deviceType from product config, default to ['phone']
+    const deviceTypes: string[] = firstProduct?.compatibleDeviceType
+      ? (Array.isArray(firstProduct.compatibleDeviceType)
+          ? firstProduct.compatibleDeviceType
+          : [firstProduct.compatibleDeviceType])
+      : ['phone'];
+
     const rawModules = profile.modules || [];
     const modules: AceModule[] = [];
 
@@ -84,7 +92,7 @@ export function parseProject(projectRoot: string, sdkPath: string): ProjectConfi
         process.stderr.write(`[arkts-lsp] Skipping module with missing name or srcPath\n`);
         continue;
       }
-      modules.push(constructModule(mod.name, mod.srcPath, projectRoot, sdkPath, compatibleSdkLevel));
+      modules.push(constructModule(mod.name, mod.srcPath, projectRoot, sdkPath, compatibleSdkLevel, deviceTypes));
     }
 
     if (modules.length === 0) return null;

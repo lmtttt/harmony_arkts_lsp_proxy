@@ -81,3 +81,21 @@ describe('findProjectRoot', () => {
     expect(findProjectRoot(tmpDir)).toBeNull();
   });
 });
+
+const TABLET_FIXTURE_DIR = path.join(__dirname, 'fixtures', 'tablet-project');
+
+describe('deviceType derivation', () => {
+  const mockSdkPath = '/mock/sdk/default';
+
+  it('derives deviceType from compatibleDeviceType', () => {
+    const result = parseProject(TABLET_FIXTURE_DIR, mockSdkPath);
+    expect(result).not.toBeNull();
+    expect(result!.modules[0].deviceType).toEqual(['tablet']);
+  });
+
+  it('defaults to ["phone"] when compatibleDeviceType is missing', () => {
+    const result = parseProject(FIXTURE_DIR, mockSdkPath);
+    expect(result).not.toBeNull();
+    expect(result!.modules[0].deviceType).toEqual(['phone']);
+  });
+});
