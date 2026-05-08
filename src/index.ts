@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { findDevEcoEnv } from './env';
-import { parseProject } from './project';
+import { parseProject, findProjectRoot } from './project';
 import { runHvigorSync } from './hvigor';
 import { startAceServer } from './ace-server';
 import { createProxy } from './proxy';
@@ -23,10 +23,15 @@ function main(): void {
 
   // Step 2: Find project root
   const cwd = process.cwd();
-  const project = parseProject(cwd, env.sdkPath);
-  if (!project) {
+  const projectRoot = findProjectRoot(cwd);
+  if (!projectRoot) {
     process.stderr.write(`[arkts-lsp] No HarmonyOS project found at ${cwd}\n`);
     process.stderr.write('[arkts-lsp] Expected build-profile.json5 in current or parent directory\n');
+    process.exit(1);
+  }
+  const project = parseProject(projectRoot, env.sdkPath);
+  if (!project) {
+    process.stderr.write(`[arkts-lsp] Failed to parse project at ${projectRoot}\n`);
     process.exit(1);
   }
   process.stderr.write(`[arkts-lsp] Project: ${project.projectRoot}\n`);

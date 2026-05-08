@@ -49,6 +49,19 @@ function constructModule(
   };
 }
 
+export function findProjectRoot(startDir: string): string | null {
+  let current = path.resolve(startDir);
+  for (let i = 0; i < 10; i++) {
+    if (fs.existsSync(path.join(current, 'build-profile.json5'))) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return null;
+}
+
 export function parseProject(projectRoot: string, sdkPath: string): ProjectConfig | null {
   const profilePath = path.join(projectRoot, 'build-profile.json5');
   if (!fs.existsSync(profilePath)) return null;

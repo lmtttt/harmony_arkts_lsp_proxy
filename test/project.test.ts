@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
-import { parseProject, extractCompatibleSdkLevel, type AceModule } from '../src/project';
+import * as fs from 'fs';
+import * as os from 'os';
+import { parseProject, extractCompatibleSdkLevel, findProjectRoot, type AceModule } from '../src/project';
 
 const FIXTURE_DIR = path.join(__dirname, 'fixtures', 'sample-project');
 
@@ -49,5 +51,33 @@ describe('parseProject', () => {
   it('uses rootUri format correctly', () => {
     const result = parseProject(FIXTURE_DIR, mockSdkPath);
     expect(result!.rootUri).toBe('file://' + FIXTURE_DIR);
+  });
+});
+
+describe('findProjectRoot', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'findroot-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('finds project root in current directory', () => {
+    fs.writeFileSync(path.join(tmpDir, 'build-profile.json5'), '{}');
+    expect(findProjectRoot(tmpDir)).toBe(tmpDir);
+  });
+
+  it('finds project root in parent directory', () => {
+    const sub = path.join(tmpDir, 'entry', 'src');
+    fs.mkdirSync(sub, { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'build-profile.json5'), '{}');
+    expect(findProjectRoot(sub)).toBe(tmpDir);
+  });
+
+  it('returns null when no build-profile.json5 found', () => {
+    expect(findProjectRoot(tmpDir)).toBeNull();
   });
 });
