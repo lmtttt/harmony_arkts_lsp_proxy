@@ -138,6 +138,9 @@ plugins/
 └── arkts-lsp/
     ├── .claude-plugin/
     │   └── plugin.json     插件清单
+    ├── hooks/
+    │   └── hooks.json      SessionStart 自动安装 hook
+    ├── package.json        npm 依赖声明（供 hook 自动安装）
     ├── .lsp.json           LSP 服务器配置
     └── README.md           插件文档
 test/
