@@ -1,4 +1,7 @@
-import { spawn, type ChildProcess } from 'child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { DevEcoEnv } from './env';
 
 export type ExitHandler = (code: number | null, signal: string | null) => void;
@@ -7,14 +10,32 @@ export interface AceServerHandle {
   process: ChildProcess;
   kill: () => void;
   onExit: (handler: ExitHandler) => void;
+  dispose: () => void;
+}
+
+function createLogDir(): string {
+  const baseDir = process.env.ARKTS_LSP_LOG_DIR || path.join(os.tmpdir(), 'arkts-lsp-proxy');
+  const logDir = path.join(baseDir, Date.now().toString());
+  fs.mkdirSync(logDir, { recursive: true });
+  return logDir;
 }
 
 export function startAceServer(env: DevEcoEnv): AceServerHandle {
-  process.stderr.write(`[arkts-lsp] Starting ace-server: ${env.aceServerPath}\n`);
+  process.stderr.write(`[arkts-lsp] Starting ace-server (stdio): ${env.aceServerPath}\n`);
+  const logDir = createLogDir();
+  process.stderr.write(`[arkts-lsp] ace-server logs: ${logDir}\n`);
 
-  const child = spawn(env.nodeBin, [env.aceServerPath, '--stdio'], {
+  const child = spawn(env.nodeBin, [
+    '--max-old-space-size=8192',
+    '--expose-gc',
+    env.aceServerPath,
+    '--stdio',
+    `--logger-path=${logDir}`,
+    '--logger-level=INFO',
+  ], {
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
+    cwd: env.devecoHome,
     env: {
       ...process.env,
       DEVECO_SDK_HOME: env.sdkPath,
@@ -53,6 +74,11 @@ export function startAceServer(env: DevEcoEnv): AceServerHandle {
     },
     onExit: (handler: ExitHandler) => {
       exitHandlers.push(handler);
+    },
+    dispose: () => {
+      if (child.exitCode === null) {
+        child.kill();
+      }
     },
   };
 }

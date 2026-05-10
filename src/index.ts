@@ -1,15 +1,24 @@
 #!/usr/bin/env node
 
 import { findDevEcoEnv } from './env';
-import { parseProject, findProjectRoot } from './project';
-import { runHvigorSync } from './hvigor';
-import { startAceServer } from './ace-server';
 import { createProxy } from './proxy';
+
+function parseProjectRootHint(): string | undefined {
+  const args = process.argv.slice(2);
+  for (let i = 0; i < args.length; i += 1) {
+    if ((args[i] === '--project-root' || args[i] === '--root' || args[i] === '--cwd') && i + 1 < args.length) {
+      return args[i + 1];
+    }
+    if (args[i].startsWith('--project-root=')) {
+      return args[i].slice('--project-root='.length);
+    }
+  }
+  return undefined;
+}
 
 function main(): void {
   process.stderr.write('[arkts-lsp] Starting ArkTS LSP Proxy\n');
 
-  // Step 1: Find DevEco Studio
   const env = findDevEcoEnv();
   if (!env) {
     process.stderr.write('==============================================\n');
@@ -19,44 +28,14 @@ function main(): void {
     process.stderr.write('==============================================\n');
     process.exit(1);
   }
+
   process.stderr.write(`[arkts-lsp] DevEco: ${env.devecoHome}\n`);
 
-  // Step 2: Find project root
-  const cwd = process.cwd();
-  const projectRoot = findProjectRoot(cwd);
-  if (!projectRoot) {
-    process.stderr.write(`[arkts-lsp] No HarmonyOS project found at ${cwd}\n`);
-    process.stderr.write('[arkts-lsp] Expected build-profile.json5 in current or parent directory\n');
-    process.exit(1);
-  }
-  const project = parseProject(projectRoot, env.sdkPath);
-  if (!project) {
-    process.stderr.write(`[arkts-lsp] Failed to parse project at ${projectRoot}\n`);
-    process.exit(1);
-  }
-  process.stderr.write(`[arkts-lsp] Project: ${project.projectRoot}\n`);
-  process.stderr.write(`[arkts-lsp] Modules: ${project.modules.map(m => m.moduleName).join(', ')}\n`);
+  const projectRootHint = parseProjectRootHint();
+  const proxy = createProxy(process.stdin, process.stdout, env, { env, projectRootHint });
 
-  // Step 3: Run hvigor sync
-  const syncOk = runHvigorSync(env, project.projectRoot);
-  if (!syncOk) {
-    process.stderr.write('[arkts-lsp] hvigor sync failed, continuing anyway\n');
-  }
-
-  // Step 4: Start ace-server
-  const ace = startAceServer(env);
-
-  // Step 5: Set up LSP proxy
-  const proxy = createProxy(process.stdin, process.stdout, ace.process, {
-    rootUri: project.rootUri,
-    lspServerWorkspacePath: project.lspServerWorkspacePath,
-    modules: project.modules,
-  });
-
-  // Step 6: Handle cleanup
   const cleanup = () => {
     proxy.dispose();
-    ace.kill();
   };
 
   process.on('SIGINT', () => {
@@ -67,14 +46,7 @@ function main(): void {
     cleanup();
     process.exit(0);
   });
-  process.stdin.on('end', () => {
-    cleanup();
-  });
-
-  ace.onExit((code) => {
-    proxy.dispose();
-    process.exit(code ?? 1);
-  });
+  process.stdin.on('end', cleanup);
 }
 
 main();

@@ -32,6 +32,18 @@ const DEFAULT_PATHS: Record<string, string[]> = {
   ],
 };
 
+const ENV_HINT_KEYS = ['ARKTS_DEVECO_HOME', 'ARKTS_DEVELOPER_PATH', 'DEVECO_HOME', 'DEVECO_PATH'];
+
+function pickExplicitEnvHome(): string | null {
+  for (const key of ENV_HINT_KEYS) {
+    const candidate = process.env[key];
+    if (candidate && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
 function resolveContentsPath(rawPath: string): string {
   const lower = rawPath.toLowerCase();
   if (lower.endsWith('.app')) {
@@ -69,9 +81,9 @@ function validateDevEcoHome(candidate: string): DevEcoEnv | null {
 }
 
 export function findDevEcoEnv(): DevEcoEnv | null {
-  const envHome = process.env.DEVECO_HOME;
+  const envHome = pickExplicitEnvHome();
   if (envHome) {
-    const result = validateDevEcoHome(envHome.trim());
+    const result = validateDevEcoHome(envHome);
     if (result) return result;
     // When DEVECO_HOME is explicitly set but invalid, don't fall through to defaults
     return null;

@@ -21,8 +21,8 @@ arkts-lsp-proxy (Node.js 进程)
     ├── 1. 发现 DevEco Studio（环境变量 / 自动搜索）
     ├── 2. 推导 SDK、ace-server、工具链路径
     ├── 3. 解析 build-profile.json5，构造 modules 参数
-    ├── 4. 运行 hvigor --sync（生成依赖映射）
-    └── 5. 启动 ace-server，拦截 initialize 请求注入参数
+    ├── 4. 启动 ace-server，拦截 initialize 请求注入参数
+    └── 5. 后台按需运行 hvigor --sync（刷新依赖映射）
          │
          ▼
     ace-server (DevEco 官方语言服务)
@@ -77,14 +77,37 @@ export DEVECO_HOME=/opt/DevEco-Studio
 
 ## 使用
 
-插件安装后，打开 `.ets` 文件时 LSP 自动激活。首次启动会执行 `hvigor --sync` 初始化依赖映射（可能需要几分钟），后续有缓存会很快。
+插件安装后，打开 `.ets` 文件时 LSP 自动激活。代理会优先启动 LSP 并响应请求；`hvigor --sync` 只作为后台 metadata refresh，不会阻塞 LSP 初始化。
 
-也可以手动运行：
+也可以手动运行（支持直接给出项目路径）：
 
 ```bash
-cd /path/to/harmonyos/project
-arkts-lsp-proxy
+arkts-lsp-proxy --project-root /path/to/harmonyos/project
 ```
+
+当从非鸿蒙目录启动时，默认不会立即校验项目；会等到 LSP 初始化请求到来后根据 `rootUri`/`workspaceFolders` 自动定位鸿蒙项目路径。
+
+### Hvigor metadata sync
+
+`arkts-lsp-proxy` 不会把 `hvigor --sync` 作为 LSP 启动前置条件。这个策略和 Claude Code 的其它 LSP 插件一致：插件负责启动 language server，工程 metadata / index refresh 属于 language server 内部增强流程。
+
+环境变量：
+
+```bash
+# 默认：只有 metadata 缺失或过期时，后台运行 hvigor sync
+export ARKTS_LSP_SYNC=auto
+
+# 完全跳过 hvigor sync，启动最快
+export ARKTS_LSP_SYNC=off
+
+# 强制后台运行 hvigor sync，即使 metadata 看起来是新鲜的
+export ARKTS_LSP_SYNC=force
+
+# 后台 sync 超时，默认 15000
+export ARKTS_LSP_SYNC_TIMEOUT_MS=15000
+```
+
+如果 sync 失败或超时，LSP 仍会继续运行。当前文件的 completion、definition、references、diagnostics 应继续可用；跨模块、SDK、依赖相关结果可能降级，直到 metadata 刷新成功。
 
 ## 平台支持
 
@@ -101,10 +124,10 @@ macOS 自动处理 `.app/Contents` 层，用户只需设置 `.app` 路径。
 | 场景 | 行为 |
 |------|------|
 | DevEco Studio 未安装 | stderr 输出安装指引，exit(1) |
-| 项目目录无 `build-profile.json5` | stderr 输出提示，exit(1) |
-| hvigor sync 失败 | stderr 输出警告，继续启动 ace-server |
+| 初始化请求未携带可定位路径或未检测到 `build-profile.json5` | 代理返回 LSP 初始化错误，需调整 `rootUri`/`workspaceFolders` |
+| hvigor sync 失败或超时 | stderr 输出警告，LSP 继续以现有 metadata / degraded 模式运行 |
 | ace-server 启动失败 | 输出错误信息，exit(1) |
-| ace-server 运行时崩溃 | 代理进程同步退出 |
+| ace-server 运行时崩溃 | 代理将中断当前会话并回传错误 |
 
 ## 开发
 
@@ -128,7 +151,7 @@ npm link
 src/
 ├── env.ts          DevEco Studio 环境发现
 ├── project.ts      HarmonyOS 项目解析 + findProjectRoot 向上搜索
-├── hvigor.ts       hvigor sync 缓存检查与执行
+├── hvigor.ts       hvigor metadata 状态、sync 策略与后台执行
 ├── ace-server.ts   ace-server 子进程生命周期管理（onExit 回调）
 ├── proxy.ts        LSP 消息代理，拦截 initialize 注入参数
 └── index.ts        入口，串联所有模块

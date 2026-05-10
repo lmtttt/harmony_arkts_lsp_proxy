@@ -40,10 +40,10 @@ describe('parseProject', () => {
 
     expect(mod.moduleName).toBe('entry');
     expect(mod.modulePath).toBe(path.join(FIXTURE_DIR, 'entry'));
-    expect(mod.deviceType).toEqual(['phone']);
-    expect(mod.jsComponentType).toBe(0);
+    expect(mod.deviceType).toEqual([5]);
+    expect(mod.jsComponentType).toBe('declarative');
     expect(mod.compatibleSdkLevel).toBe('12');
-    expect(mod.apiType).toBe('Stage');
+    expect(mod.apiType).toBe('stageMode');
     expect(mod.sdkJsPath).toContain('js/api/phone');
     expect(mod.aceLoaderPath).toContain('js/framework/phone/ace-loader');
   });
@@ -90,12 +90,12 @@ describe('deviceType derivation', () => {
   it('derives deviceType from compatibleDeviceType', () => {
     const result = parseProject(TABLET_FIXTURE_DIR, mockSdkPath);
     expect(result).not.toBeNull();
-    expect(result!.modules[0].deviceType).toEqual(['tablet']);
+    expect(result!.modules[0].deviceType).toEqual([7]);
   });
 
   it('defaults to ["phone"] when compatibleDeviceType is missing', () => {
     const result = parseProject(FIXTURE_DIR, mockSdkPath);
     expect(result).not.toBeNull();
-    expect(result!.modules[0].deviceType).toEqual(['phone']);
+    expect(result!.modules[0].deviceType).toEqual([5]);
   });
 });
