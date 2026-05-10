@@ -1,6 +1,6 @@
 {
   "name": "arkts-lsp-proxy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ArkTS LSP Proxy — bridges DevEco Studio's ace-server to Claude Code",
   "main": "dist/index.js",
   "bin": {

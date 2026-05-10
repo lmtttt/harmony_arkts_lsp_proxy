@@ -12,7 +12,7 @@ export interface AceServerHandle {
 export function startAceServer(env: DevEcoEnv): AceServerHandle {
   process.stderr.write(`[arkts-lsp] Starting ace-server: ${env.aceServerPath}\n`);
 
-  const child = spawn(env.nodeBin, [env.aceServerPath], {
+  const child = spawn(env.nodeBin, [env.aceServerPath, '--stdio'], {
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
     env: {
