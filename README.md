@@ -33,7 +33,16 @@ arkts-lsp-proxy (Node.js 进程)
          └── @Component/@State/@Prop 语义理解
 ```
 
-代理不实现任何语言功能，只做消息转发和参数注入。
+代理不实现 ArkTS 语义分析，只做启动适配、消息转发、参数注入和必要的 LSP 结果归一化。比如 DevEco ace-server 会把 hover 内容包成私有 JSON 字符串，代理会转换成标准 Markdown hover，方便 Claude Code 直接消费类型信息。
+
+## 当前支持的核心能力
+
+- `textDocument/completion`
+- `textDocument/hover`，包含类型信息和文档，已转换为标准 Markdown 内容
+- `textDocument/definition`
+- `textDocument/references`
+- `textDocument/signatureHelp`
+- diagnostics，来自 ace-server 的发布诊断
 
 ## 前置条件
 
@@ -107,7 +116,7 @@ export ARKTS_LSP_SYNC=force
 export ARKTS_LSP_SYNC_TIMEOUT_MS=15000
 ```
 
-如果 sync 失败或超时，LSP 仍会继续运行。当前文件的 completion、definition、references、diagnostics 应继续可用；跨模块、SDK、依赖相关结果可能降级，直到 metadata 刷新成功。
+如果 sync 失败或超时，LSP 仍会继续运行。当前文件的 completion、hover、definition、references、diagnostics 应继续可用；跨模块、SDK、依赖相关结果可能降级，直到 metadata 刷新成功。
 
 ## 平台支持
 

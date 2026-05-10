@@ -42,6 +42,12 @@ function createFakeAceServer(): {
   events: string[];
   notifications: Array<{ method: string; params: Record<string, unknown> }>;
   connection: MessageConnection;
+};
+function createFakeAceServer(options?: { hoverResult?: unknown }): {
+  handle: AceServerHandle;
+  events: string[];
+  notifications: Array<{ method: string; params: Record<string, unknown> }>;
+  connection: MessageConnection;
 } {
   const aceStdout = new PassThrough();
   const aceStdin = new PassThrough();
@@ -78,7 +84,7 @@ function createFakeAceServer(): {
       queueMicrotask(() =>
         connection.sendNotification('aceProject/onAsyncHover', {
           requestId,
-          result: { contents: 'hover-ok' },
+          result: options?.hoverResult ?? { contents: 'hover-ok' },
           traceId: 'aceProject/onAsyncHover',
         }),
       );
@@ -237,6 +243,76 @@ describe('createProxy modern mode', () => {
       'notification:aceProject/onAsyncDidOpen',
       'notification:aceProject/onAsyncHover',
     ]);
+  });
+
+  it('normalizes ace hover json payloads into markdown hover content', async () => {
+    const fakeAce = createFakeAceServer({
+      hoverResult: {
+        range: {
+          start: { line: 11, character: 6 },
+          end: { line: 11, character: 9 },
+        },
+        contents: {
+          kind: 'plaintext',
+          value: JSON.stringify({
+            code: {
+              language: 'ts',
+              value: 'const TAG: "Index"',
+            },
+            data: [
+              {
+                document: 'Symbol documentation',
+                tags: [{ name: 'example', text: 'hover tag' }],
+              },
+            ],
+          }),
+        },
+      },
+    });
+    aceConnection = fakeAce.connection;
+    mockedStartAceServer.mockReturnValue(fakeAce.handle);
+
+    const env = createEnv();
+    const client = createClient(env);
+    proxyHandle = client.handle;
+    clientConnection = client.connection;
+
+    const filePath = path.resolve('test/fixtures/sample-project/entry/src/main/ets/pages/Index.ets');
+    const uri = `file://${filePath}`;
+
+    await clientConnection.sendRequest('initialize', {
+      processId: process.pid,
+      rootUri: 'file:///tmp/not-the-arkts-project',
+      capabilities: {},
+    });
+    clientConnection.sendNotification('initialized', {});
+    clientConnection.sendNotification('textDocument/didOpen', {
+      textDocument: {
+        uri,
+        languageId: 'arkts',
+        version: 1,
+        text: 'const TAG = "Index"',
+      },
+    });
+
+    const hover = await timeout(
+      clientConnection.sendRequest('textDocument/hover', {
+        textDocument: { uri },
+        position: { line: 0, character: 7 },
+      }),
+      250,
+    );
+
+    expect(hover).toEqual({
+      range: {
+        start: { line: 11, character: 6 },
+        end: { line: 11, character: 9 },
+      },
+      contents: {
+        kind: 'markdown',
+        value: '```ts\nconst TAG: "Index"\n```\n\nSymbol documentation\n\n@example hover tag',
+      },
+    });
   });
 
   it('does not block initialize while hvigor sync is running in background', async () => {

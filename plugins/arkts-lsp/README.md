@@ -5,6 +5,15 @@ ArkTS language server for Claude Code — wraps DevEco Studio's ace-server with 
 ## Supported Extensions
 `.ets`, `.d.ets`
 
+## Supported LSP Features
+
+- Completion
+- Hover/type information, normalized from ace-server's private payload into Markdown
+- Definition
+- References
+- Signature help
+- Diagnostics
+
 ## Installation
 
 The plugin auto-installs `arkts-lsp-proxy` on first use via a SessionStart hook. No manual installation needed.

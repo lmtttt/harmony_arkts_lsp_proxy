@@ -98,6 +98,150 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&gt;/g, '>')
+    .replace(/&lt;/g, '<')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+function sanitizeMarkdownLanguage(value: unknown): string {
+  return typeof value === 'string' ? value.replace(/[^A-Za-z0-9_+#.-]/g, '') : '';
+}
+
+function extractHoverTag(tag: unknown): string | null {
+  if (typeof tag === 'string') {
+    const trimmed = tag.trim();
+    return trimmed.length ? trimmed : null;
+  }
+
+  if (!isPlainObject(tag)) {
+    return null;
+  }
+
+  const name = typeof tag.name === 'string' ? tag.name.trim() : '';
+  const textValue = tag.text ?? tag.comment ?? tag.documentation;
+  const text = typeof textValue === 'string' ? decodeHtmlEntities(textValue).trim() : '';
+
+  if (name && text) {
+    return `@${name} ${text}`;
+  }
+  if (name) {
+    return `@${name}`;
+  }
+  return text.length ? text : null;
+}
+
+function extractHoverDocuments(data: unknown): string[] {
+  const documents: string[] = [];
+  const items = Array.isArray(data) ? data : [data];
+
+  for (const item of items) {
+    if (!isPlainObject(item)) {
+      continue;
+    }
+
+    if (typeof item.document === 'string') {
+      const document = decodeHtmlEntities(item.document).trim();
+      if (document.length) {
+        documents.push(document);
+      }
+    }
+
+    if (Array.isArray(item.tags)) {
+      for (const tag of item.tags) {
+        const formatted = extractHoverTag(tag);
+        if (formatted) {
+          documents.push(formatted);
+        }
+      }
+    }
+  }
+
+  return documents;
+}
+
+function parseAceHoverPayload(value: string): Record<string, unknown> | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (!isPlainObject(parsed)) {
+      return null;
+    }
+    if (!isPlainObject(parsed.code) && !('data' in parsed)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeAceHoverContents(contents: unknown): unknown {
+  const rawValue = typeof contents === 'string'
+    ? contents
+    : isPlainObject(contents) && typeof contents.value === 'string'
+      ? contents.value
+      : null;
+
+  if (!rawValue) {
+    return contents;
+  }
+
+  const payload = parseAceHoverPayload(rawValue);
+  if (!payload) {
+    return contents;
+  }
+
+  const parts: string[] = [];
+  const code = isPlainObject(payload.code) ? payload.code : null;
+  const codeValue = typeof code?.value === 'string' ? decodeHtmlEntities(code.value).trim() : '';
+  if (codeValue.length) {
+    const language = sanitizeMarkdownLanguage(code?.language);
+    parts.push(`\`\`\`${language}\n${codeValue}\n\`\`\``);
+  }
+
+  parts.push(...extractHoverDocuments(payload.data));
+
+  if (parts.length === 0) {
+    return contents;
+  }
+
+  return {
+    kind: 'markdown',
+    value: parts.join('\n\n'),
+  };
+}
+
+function normalizeHoverResult(result: unknown): unknown {
+  if (!isPlainObject(result) || !('contents' in result)) {
+    return result;
+  }
+
+  const contents = normalizeAceHoverContents(result.contents);
+  if (contents === result.contents) {
+    return result;
+  }
+
+  return {
+    ...result,
+    contents,
+  };
+}
+
+function normalizeClientResult(method: string, result: unknown): unknown {
+  if (method === 'textDocument/hover') {
+    return normalizeHoverResult(result);
+  }
+  return result;
+}
+
 function createQueueToken(): string {
   return `arkts-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -728,6 +872,10 @@ export function createProxy(
     const targetMethod = mapped?.method ?? method;
     const targetParams = mapped?.params ?? createRequestPayload(params);
     const useNotificationResponse = Boolean(mapped);
+    const sendToAce = (conn: MessageConnection): Promise<unknown> =>
+      sendAceRequest(conn, targetMethod, targetParams, useNotificationResponse).then((result) =>
+        normalizeClientResult(method, result),
+      );
 
     if (!aceConn) {
       if (!initializePromise) {
@@ -737,7 +885,7 @@ export function createProxy(
         if (!aceConn) {
           return Promise.reject(new ResponseError(ErrorCodes.InternalError, 'ace connection is not ready'));
         }
-        return sendAceRequest(aceConn, targetMethod, targetParams, useNotificationResponse);
+        return sendToAce(aceConn);
       });
     }
 
@@ -746,10 +894,10 @@ export function createProxy(
       if (!activeConn) {
         return Promise.reject(new ResponseError(ErrorCodes.InternalError, 'ace connection is not ready'));
       }
-      return queueRequest(() => sendAceRequest(activeConn, targetMethod, targetParams, useNotificationResponse));
+      return queueRequest(() => sendToAce(activeConn));
     }
 
-    return sendAceRequest(aceConn, targetMethod, targetParams, useNotificationResponse);
+    return sendToAce(aceConn);
   }
 
   function onNotification(method: string, params: RpcParams): void {
