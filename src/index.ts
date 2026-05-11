@@ -1,7 +1,18 @@
 #!/usr/bin/env node
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { findDevEcoEnv } from './env';
 import { createProxy } from './proxy';
+
+function readPackageVersion(): string {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8')) as { version?: unknown };
+    return typeof pkg.version === 'string' ? pkg.version : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
 
 function parseProjectRootHint(): string | undefined {
   const args = process.argv.slice(2);
@@ -18,6 +29,7 @@ function parseProjectRootHint(): string | undefined {
 
 function main(): void {
   process.stderr.write('[arkts-lsp] Starting ArkTS LSP Proxy\n');
+  process.stderr.write(`[arkts-lsp] version=${readPackageVersion()}\n`);
 
   const env = findDevEcoEnv();
   if (!env) {

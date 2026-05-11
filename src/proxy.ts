@@ -526,6 +526,20 @@ function shouldLogMetadataDebug(): boolean {
   return value === '1' || value === 'true' || value === 'yes' || value === 'on';
 }
 
+function shouldTraceLsp(): boolean {
+  const value = String(process.env.ARKTS_LSP_TRACE ?? '').toLowerCase();
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on';
+}
+
+function traceLsp(message: string, fields?: Record<string, unknown>): void {
+  if (!shouldTraceLsp()) {
+    return;
+  }
+
+  const suffix = fields ? ` ${JSON.stringify(fields)}` : '';
+  process.stderr.write(`[arkts-lsp trace] ${message}${suffix}\n`);
+}
+
 function pathExists(filePath: string): boolean {
   try {
     return fs.existsSync(filePath);
@@ -907,6 +921,7 @@ export function createProxy(
 
     const initRootHint = inferProjectRootFromInitializeParams(params);
     initializePromise = (async () => {
+      traceLsp('request route', { method: 'initialize', route: 'proxy-initialize' });
       const connection = await ensureServer(initRootHint);
       if (!project) {
         throw new ResponseError(ErrorCodes.InvalidParams, 'Project not available');
@@ -944,6 +959,13 @@ export function createProxy(
   }
 
   function onRequest(method: string, params: RpcParams): Promise<RpcResult> {
+    traceLsp('client request', {
+      method,
+      initialized: isInitialized,
+      serverReady: isServerReady,
+      hasAceConnection: Boolean(aceConn),
+    });
+
     if (method === 'initialize') {
       return resolveInitializeRequest(params) as Promise<RpcResult>;
     }
@@ -955,14 +977,27 @@ export function createProxy(
     if (method === 'textDocument/documentSymbol') {
       const uri = getTextDocumentUri(params);
       if (!uri) {
+        traceLsp('request route', { method, route: 'proxy-fallback', reason: 'missing-uri' });
         return Promise.resolve([]);
       }
       const text = openDocumentTexts.get(uri) ?? readFileText(uri);
+      traceLsp('request route', {
+        method,
+        route: 'proxy-fallback',
+        source: openDocumentTexts.has(uri) ? 'open-document' : 'disk',
+        hasText: Boolean(text),
+      });
       return Promise.resolve(text ? parseDocumentSymbols(text) : []);
     }
 
     if (method === 'workspace/symbol') {
       const query = isPlainObject(params) && typeof params.query === 'string' ? params.query : '';
+      traceLsp('request route', {
+        method,
+        route: 'proxy-fallback',
+        hasProject: Boolean(project),
+        queryLength: query.length,
+      });
       return Promise.resolve(project ? parseWorkspaceSymbols(project.projectRoot, query) : []);
     }
 
@@ -970,6 +1005,11 @@ export function createProxy(
     const targetMethod = mapped?.method ?? method;
     const targetParams = mapped?.params ?? createRequestPayload(params);
     const useNotificationResponse = Boolean(mapped);
+    traceLsp('request route', {
+      method,
+      route: mapped ? 'ace-notification' : 'ace-request-forward',
+      targetMethod,
+    });
     const sendToAce = (conn: MessageConnection): Promise<unknown> =>
       sendAceRequest(conn, targetMethod, targetParams, useNotificationResponse).then((result) =>
         normalizeClientResult(method, result),
@@ -999,6 +1039,8 @@ export function createProxy(
   }
 
   function onNotification(method: string, params: RpcParams): void {
+    traceLsp('client notification', { method });
+
     if (method === 'textDocument/didOpen') {
       const textDocument = isPlainObject(params) ? (params.textDocument as Record<string, unknown>) : undefined;
       const uri = isPlainObject(textDocument) ? (textDocument.uri as string | undefined) : undefined;

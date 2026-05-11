@@ -61,6 +61,14 @@ For SDK / ArkUI / oh_modules indexing investigation, enable opt-in metadata diag
 export ARKTS_LSP_METADATA_DEBUG=1
 ```
 
+For Claude Code integration investigation, enable request routing trace:
+
+```bash
+export ARKTS_LSP_TRACE=1
+```
+
+The proxy prints its runtime version at startup and logs whether each request is handled by proxy fallback or forwarded to ace-server.
+
 ## Usage
 
 The proxy no longer requires you to `cd` into a HarmonyOS project first.
