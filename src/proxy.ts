@@ -6,6 +6,7 @@ import {
 } from 'vscode-jsonrpc/node';
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc';
 import type { ChildProcess } from 'node:child_process';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -17,6 +18,7 @@ import {
 } from './project';
 import { startAceServer, type AceServerHandle } from './ace-server';
 import { parseHvigorSyncConfig, runHvigorSyncAsync } from './hvigor';
+import { parseDocumentSymbols, parseWorkspaceSymbols } from './symbols';
 import type { DevEcoEnv } from './env';
 
 type RpcParams = Record<string, unknown> | undefined;
@@ -242,6 +244,22 @@ function normalizeClientResult(method: string, result: unknown): unknown {
   return result;
 }
 
+function addProxyCapabilities(result: unknown): unknown {
+  if (!isPlainObject(result)) {
+    return result;
+  }
+
+  const capabilities = isPlainObject(result.capabilities) ? result.capabilities : {};
+  return {
+    ...result,
+    capabilities: {
+      ...capabilities,
+      documentSymbolProvider: true,
+      workspaceSymbolProvider: true,
+    },
+  };
+}
+
 function createQueueToken(): string {
   return `arkts-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -303,6 +321,24 @@ function getEditorFiles(openFiles: Set<string>): string[] {
 
 function getOpenFileUris(openFiles: Set<string>): string[] {
   return Array.from(openFiles);
+}
+
+function getTextDocumentUri(params: RpcParams): string | null {
+  const textDocument = extractTextDocument(params);
+  return typeof textDocument?.uri === 'string' ? textDocument.uri : null;
+}
+
+function readFileText(uri: string): string | null {
+  const filePath = uriToFilePath(uri);
+  if (!filePath) {
+    return null;
+  }
+
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return null;
+  }
 }
 
 function createRequestPayload(params: RpcParams): RpcPayload {
@@ -485,6 +521,49 @@ function isModernMode(value: unknown): value is ModernMode {
   return isPlainObject(value) && isDevEcoEnv(value.env);
 }
 
+function shouldLogMetadataDebug(): boolean {
+  const value = String(process.env.ARKTS_LSP_METADATA_DEBUG ?? '').toLowerCase();
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on';
+}
+
+function pathExists(filePath: string): boolean {
+  try {
+    return fs.existsSync(filePath);
+  } catch {
+    return false;
+  }
+}
+
+function logMetadataDebug(env: DevEcoEnv, project: ProjectConfig, rootHint: string | null, resolvedRoot: string): void {
+  const payload = {
+    rootHint,
+    resolvedRoot,
+    projectRoot: project.projectRoot,
+    sdkPath: env.sdkPath,
+    aceServerPath: env.aceServerPath,
+    hvigorPath: env.hvigorPath,
+    sdkPathExists: pathExists(env.sdkPath),
+    aceServerPathExists: pathExists(env.aceServerPath),
+    hvigorPathExists: pathExists(env.hvigorPath),
+    modules: project.modules.map((module) => ({
+      moduleName: module.moduleName,
+      modulePath: module.modulePath,
+      moduleType: module.moduleType,
+      compileSdkVersion: module.compileSdkVersion,
+      compatibleSdkVersion: module.compatibleSdkVersion,
+      apiType: module.apiType,
+      runtimeOs: module.runtimeOs,
+      aceLoaderPath: module.aceLoaderPath,
+      sdkJsPath: module.sdkJsPath,
+      aceLoaderPathExists: pathExists(module.aceLoaderPath),
+      sdkJsPathExists: pathExists(module.sdkJsPath),
+      packageManagerType: module.packageManagerType,
+    })),
+  };
+
+  process.stderr.write(`[arkts-lsp] metadata debug: ${JSON.stringify(payload)}\n`);
+}
+
 export function injectInitializationOptions(
   message: RawClientMessage,
   payload: Record<string, unknown>,
@@ -587,6 +666,7 @@ export function createProxy(
   const explicitProjectRoot = options.projectRootHint || process.env.ARKTS_PROJECT_ROOT || process.env.ARKTS_PROJECT_PATH;
 
   const openFiles = new Set<string>();
+  const openDocumentTexts = new Map<string, string>();
   const requestQueue: Array<QueuedRequest> = [];
   const notificationQueue: Array<QueuedNotification> = [];
   const pendingAceRequests = new Map<string, PendingAceRequest>();
@@ -787,6 +867,10 @@ export function createProxy(
       }
       project = parsed;
 
+      if (shouldLogMetadataDebug()) {
+        logMetadataDebug(env, parsed, rootHint, resolvedRoot);
+      }
+
       scheduleHvigorSync(parsed.projectRoot);
 
       const handle = startAceServer(env);
@@ -847,7 +931,7 @@ export function createProxy(
       isInitialized = true;
       isServerReady = true;
       flushQueues();
-      return result;
+      return addProxyCapabilities(result);
     })().catch((err) => {
       isInitialized = false;
       clearQueues(err);
@@ -866,6 +950,20 @@ export function createProxy(
 
     if (!isInitialized && !initializePromise) {
       return Promise.reject(new ResponseError(ErrorCodes.ServerNotInitialized, 'Initialize first.'));
+    }
+
+    if (method === 'textDocument/documentSymbol') {
+      const uri = getTextDocumentUri(params);
+      if (!uri) {
+        return Promise.resolve([]);
+      }
+      const text = openDocumentTexts.get(uri) ?? readFileText(uri);
+      return Promise.resolve(text ? parseDocumentSymbols(text) : []);
+    }
+
+    if (method === 'workspace/symbol') {
+      const query = isPlainObject(params) && typeof params.query === 'string' ? params.query : '';
+      return Promise.resolve(project ? parseWorkspaceSymbols(project.projectRoot, query) : []);
     }
 
     const mapped = mapRequest(method, params, openFiles);
@@ -906,6 +1004,19 @@ export function createProxy(
       const uri = isPlainObject(textDocument) ? (textDocument.uri as string | undefined) : undefined;
       if (uri && typeof uri === 'string') {
         openFiles.add(uri);
+        if (typeof textDocument?.text === 'string') {
+          openDocumentTexts.set(uri, textDocument.text);
+        }
+      }
+    }
+
+    if (method === 'textDocument/didChange') {
+      const textDocument = isPlainObject(params) ? (params.textDocument as Record<string, unknown>) : undefined;
+      const uri = isPlainObject(textDocument) ? (textDocument.uri as string | undefined) : undefined;
+      const contentChanges = isPlainObject(params) && Array.isArray(params.contentChanges) ? params.contentChanges : [];
+      const lastChange = contentChanges[contentChanges.length - 1];
+      if (uri && isPlainObject(lastChange) && typeof lastChange.text === 'string') {
+        openDocumentTexts.set(uri, lastChange.text);
       }
     }
 
@@ -914,6 +1025,7 @@ export function createProxy(
       const uri = isPlainObject(textDocument) ? (textDocument.uri as string | undefined) : undefined;
       if (uri && typeof uri === 'string') {
         openFiles.delete(uri);
+        openDocumentTexts.delete(uri);
       }
     }
 

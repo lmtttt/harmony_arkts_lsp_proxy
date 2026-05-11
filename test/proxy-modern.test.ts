@@ -335,7 +335,13 @@ describe('createProxy modern mode', () => {
       250,
     );
 
-    expect(result).toEqual({ capabilities: { hoverProvider: true } });
+    expect(result).toMatchObject({
+      capabilities: {
+        hoverProvider: true,
+        documentSymbolProvider: true,
+        workspaceSymbolProvider: true,
+      },
+    });
     expect(hvigorMocks.runHvigorSyncAsync).toHaveBeenCalledOnce();
   });
 
@@ -373,7 +379,13 @@ describe('createProxy modern mode', () => {
       250,
     );
 
-    expect(result).toEqual({ capabilities: { hoverProvider: true } });
+    expect(result).toMatchObject({
+      capabilities: {
+        hoverProvider: true,
+        documentSymbolProvider: true,
+        workspaceSymbolProvider: true,
+      },
+    });
   });
 
   it('normalizes didOpen languageId and sends ace editor files as file paths', async () => {
@@ -422,6 +434,119 @@ describe('createProxy modern mode', () => {
       },
       editorFiles: [filePath],
     });
+  });
+
+  it('serves document symbols from opened ArkTS text without forwarding to ace', async () => {
+    const fakeAce = createFakeAceServer();
+    aceConnection = fakeAce.connection;
+    mockedStartAceServer.mockReturnValue(fakeAce.handle);
+
+    const env = createEnv();
+    const client = createClient(env);
+    proxyHandle = client.handle;
+    clientConnection = client.connection;
+
+    const filePath = path.resolve('test/fixtures/sample-project/entry/src/main/ets/pages/CameraPage.ets');
+    const uri = `file://${filePath}`;
+
+    await clientConnection.sendRequest('initialize', {
+      processId: process.pid,
+      rootUri: 'file:///tmp/not-the-arkts-project',
+      capabilities: {},
+    });
+    clientConnection.sendNotification('initialized', {});
+    clientConnection.sendNotification('textDocument/didOpen', {
+      textDocument: {
+        uri,
+        languageId: 'arkts',
+        version: 1,
+        text: `@Entry
+@Component
+struct CameraPage {
+  @State now: string = ''
+
+  aboutToAppear(): void {
+  }
+
+  @Builder
+  private Content() {
+  }
+
+  build() {
+    Text(this.now)
+  }
+}
+
+export class CameraViewModel {
+}`,
+      },
+    });
+
+    const symbols = await timeout(
+      clientConnection.sendRequest('textDocument/documentSymbol', {
+        textDocument: { uri },
+      }),
+      250,
+    );
+
+    expect(symbols).toMatchObject([
+      {
+        name: 'CameraPage',
+        kind: 23,
+        detail: '@Entry @Component',
+        children: [
+          { name: 'now', kind: 7, detail: '@State' },
+          { name: 'aboutToAppear', kind: 6 },
+          { name: 'Content', kind: 6, detail: '@Builder' },
+          { name: 'build', kind: 6 },
+        ],
+      },
+      {
+        name: 'CameraViewModel',
+        kind: 5,
+      },
+    ]);
+    expect(fakeAce.events).not.toContain('request:textDocument/documentSymbol');
+    expect(fakeAce.events).not.toContain('notification:textDocument/documentSymbol');
+  });
+
+  it('serves lightweight workspace symbols from the resolved ArkTS project root', async () => {
+    const fakeAce = createFakeAceServer();
+    aceConnection = fakeAce.connection;
+    mockedStartAceServer.mockReturnValue(fakeAce.handle);
+
+    const env = createEnv();
+    const client = createClient(env);
+    proxyHandle = client.handle;
+    clientConnection = client.connection;
+
+    const filePath = path.resolve('test/fixtures/sample-project/entry/src/main/ets/pages/CameraPage.ets');
+    const uri = `file://${filePath}`;
+
+    await clientConnection.sendRequest('initialize', {
+      processId: process.pid,
+      rootUri: 'file:///tmp/not-the-arkts-project',
+      capabilities: {},
+    });
+
+    const symbols = await timeout(
+      clientConnection.sendRequest('workspace/symbol', {
+        query: 'CameraViewModel',
+      }),
+      250,
+    );
+
+    expect(symbols).toEqual([
+      expect.objectContaining({
+        name: 'CameraViewModel',
+        kind: 5,
+        location: expect.objectContaining({
+          uri,
+        }),
+      }),
+    ]);
+    expect(fakeAce.events).not.toContain('request:workspace/symbol');
+    expect(fakeAce.events).not.toContain('notification:workspace/symbol');
   });
 
   it('maps standard references to ace find usages notifications', async () => {

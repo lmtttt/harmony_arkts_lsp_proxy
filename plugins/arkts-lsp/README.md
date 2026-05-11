@@ -12,6 +12,8 @@ ArkTS language server for Claude Code — wraps DevEco Studio's ace-server with 
 - Definition
 - References
 - Signature help
+- Document symbols for ArkTS/ArkUI file structure
+- Lightweight workspace symbol search
 - Diagnostics
 
 ## Installation
@@ -52,6 +54,12 @@ export ARKTS_LSP_SYNC_TIMEOUT_MS=15000
 ```
 
 If sync fails or times out, the LSP remains available in degraded metadata mode. Cross-module and SDK-dependent results may be less complete until metadata is refreshed.
+
+For SDK / ArkUI / oh_modules indexing investigation, enable opt-in metadata diagnostics:
+
+```bash
+export ARKTS_LSP_METADATA_DEBUG=1
+```
 
 ## Usage
 

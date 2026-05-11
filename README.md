@@ -30,10 +30,12 @@ arkts-lsp-proxy (Node.js 进程)
          ├── textDocument/completion
          ├── textDocument/hover
          ├── textDocument/definition
+         ├── textDocument/documentSymbol (proxy fallback)
+         ├── workspace/symbol (proxy fallback)
          └── @Component/@State/@Prop 语义理解
 ```
 
-代理不实现 ArkTS 语义分析，只做启动适配、消息转发、参数注入和必要的 LSP 结果归一化。比如 DevEco ace-server 会把 hover 内容包成私有 JSON 字符串，代理会转换成标准 Markdown hover，方便 Claude Code 直接消费类型信息。
+代理不实现 ArkTS 语义分析，只做启动适配、消息转发、参数注入和必要的 LSP 结果归一化。比如 DevEco ace-server 会把 hover 内容包成私有 JSON 字符串，代理会转换成标准 Markdown hover，方便 Claude Code 直接消费类型信息。DevEco ace-server 未提供的 symbol 能力由 proxy 做轻量 fallback。
 
 ## 当前支持的核心能力
 
@@ -42,6 +44,8 @@ arkts-lsp-proxy (Node.js 进程)
 - `textDocument/definition`
 - `textDocument/references`
 - `textDocument/signatureHelp`
+- `textDocument/documentSymbol`，基于打开文件文本解析 ArkTS/ArkUI 文件结构
+- `workspace/symbol`，基于项目根轻量扫描 `.ets/.ts/.d.ets/.d.ts`
 - diagnostics，来自 ace-server 的发布诊断
 
 ## 前置条件
@@ -117,6 +121,16 @@ export ARKTS_LSP_SYNC_TIMEOUT_MS=15000
 ```
 
 如果 sync 失败或超时，LSP 仍会继续运行。当前文件的 completion、hover、definition、references、diagnostics 应继续可用；跨模块、SDK、依赖相关结果可能降级，直到 metadata 刷新成功。
+
+### Metadata debug
+
+排查 SDK / ArkUI / oh_modules 索引问题时，可以打开 metadata debug。默认关闭，避免在普通日志里暴露本地路径。
+
+```bash
+export ARKTS_LSP_METADATA_DEBUG=1
+```
+
+开启后，代理会在 stderr 输出注入给 ace-server 的关键工程信息，包括项目根、SDK 路径、module 配置、`aceLoaderPath`、`sdkJsPath` 和这些路径是否存在。
 
 ## 平台支持
 
