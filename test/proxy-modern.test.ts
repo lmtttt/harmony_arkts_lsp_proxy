@@ -549,6 +549,95 @@ export class CameraViewModel {
     expect(fakeAce.events).not.toContain('notification:workspace/symbol');
   });
 
+  it('returns no workspace symbols when the query is empty', async () => {
+    const fakeAce = createFakeAceServer();
+    aceConnection = fakeAce.connection;
+    mockedStartAceServer.mockReturnValue(fakeAce.handle);
+
+    const env = createEnv();
+    const client = createClient(env);
+    proxyHandle = client.handle;
+    clientConnection = client.connection;
+
+    await clientConnection.sendRequest('initialize', {
+      processId: process.pid,
+      rootUri: 'file:///tmp/not-the-arkts-project',
+      capabilities: {},
+    });
+
+    await expect(
+      timeout(
+        clientConnection.sendRequest('workspace/symbol', {
+          query: '',
+        }),
+        250,
+      ),
+    ).resolves.toEqual([]);
+  });
+
+  it('supports alternate workspace symbol query fields from non-standard clients', async () => {
+    const fakeAce = createFakeAceServer();
+    aceConnection = fakeAce.connection;
+    mockedStartAceServer.mockReturnValue(fakeAce.handle);
+
+    const env = createEnv();
+    const client = createClient(env);
+    proxyHandle = client.handle;
+    clientConnection = client.connection;
+
+    const filePath = path.resolve('test/fixtures/sample-project/entry/src/main/ets/pages/CameraPage.ets');
+    const uri = `file://${filePath}`;
+
+    await clientConnection.sendRequest('initialize', {
+      processId: process.pid,
+      rootUri: 'file:///tmp/not-the-arkts-project',
+      capabilities: {},
+    });
+
+    const symbols = await timeout(
+      clientConnection.sendRequest('workspace/symbol', {
+        pattern: 'CameraViewModel',
+      }),
+      250,
+    );
+
+    expect(symbols).toEqual([
+      expect.objectContaining({
+        name: 'CameraViewModel',
+        kind: 5,
+        location: expect.objectContaining({
+          uri,
+        }),
+      }),
+    ]);
+  });
+
+  it('returns no workspace symbols for non-matching queries', async () => {
+    const fakeAce = createFakeAceServer();
+    aceConnection = fakeAce.connection;
+    mockedStartAceServer.mockReturnValue(fakeAce.handle);
+
+    const env = createEnv();
+    const client = createClient(env);
+    proxyHandle = client.handle;
+    clientConnection = client.connection;
+
+    await clientConnection.sendRequest('initialize', {
+      processId: process.pid,
+      rootUri: 'file:///tmp/not-the-arkts-project',
+      capabilities: {},
+    });
+
+    await expect(
+      timeout(
+        clientConnection.sendRequest('workspace/symbol', {
+          query: 'SymbolThatDoesNotExistInFixture',
+        }),
+        250,
+      ),
+    ).resolves.toEqual([]);
+  });
+
   it('maps standard references to ace find usages notifications', async () => {
     const fakeAce = createFakeAceServer();
     aceConnection = fakeAce.connection;

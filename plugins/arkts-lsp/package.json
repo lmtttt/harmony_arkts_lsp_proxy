@@ -2,6 +2,6 @@
   "name": "arkts-lsp-deps",
   "private": true,
   "dependencies": {
-    "arkts-lsp-proxy": "0.1.5"
+    "arkts-lsp-proxy": "0.1.6"
   }
 }

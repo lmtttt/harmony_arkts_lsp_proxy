@@ -388,8 +388,13 @@ export function parseWorkspaceSymbols(
 ): SymbolInformation[] {
   const maxFiles = options?.maxFiles ?? 1000;
   const maxResults = options?.maxResults ?? 200;
+  const normalizedQuery = query.trim();
   const files: string[] = [];
   const results: SymbolInformation[] = [];
+
+  if (!normalizedQuery) {
+    return [];
+  }
 
   collectSourceFiles(projectRoot, files, maxFiles);
 
@@ -405,7 +410,7 @@ export function parseWorkspaceSymbols(
       continue;
     }
 
-    flattenSymbols(pathToFileURL(filePath).toString(), parseDocumentSymbols(text), query, results, maxResults);
+    flattenSymbols(pathToFileURL(filePath).toString(), parseDocumentSymbols(text), normalizedQuery, results, maxResults);
   }
 
   return results;

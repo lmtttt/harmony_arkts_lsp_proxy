@@ -61,6 +61,8 @@ For SDK / ArkUI / oh_modules indexing investigation, enable opt-in metadata diag
 export ARKTS_LSP_METADATA_DEBUG=1
 ```
 
+The metadata diagnostics include project files, hvigor dependency map state, SDK key directories, and module path existence checks.
+
 For Claude Code integration investigation, enable request routing trace:
 
 ```bash
@@ -68,6 +70,7 @@ export ARKTS_LSP_TRACE=1
 ```
 
 The proxy prints its runtime version at startup and logs whether each request is handled by proxy fallback or forwarded to ace-server.
+For `workspace/symbol`, trace also prints the query source field, query length, and result count.
 
 ## Usage
 

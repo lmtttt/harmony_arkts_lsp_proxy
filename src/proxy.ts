@@ -328,6 +328,44 @@ function getTextDocumentUri(params: RpcParams): string | null {
   return typeof textDocument?.uri === 'string' ? textDocument.uri : null;
 }
 
+function getStringField(value: unknown, keys: string[]): { value: string; source: string } | null {
+  if (!isPlainObject(value)) {
+    return null;
+  }
+
+  for (const key of keys) {
+    const candidate = value[key];
+    if (typeof candidate === 'string') {
+      return { value: candidate, source: key };
+    }
+  }
+
+  return null;
+}
+
+function extractWorkspaceSymbolQuery(params: RpcParams): { query: string; source: string; paramKeys: string[] } {
+  const paramKeys = isPlainObject(params) ? Object.keys(params).sort() : [];
+  const root = getStringField(params, ['query', 'name', 'symbol', 'pattern']);
+  if (root) {
+    return { query: root.value.trim(), source: root.source, paramKeys };
+  }
+
+  const nestedKeys = ['params', 'input', 'data', 'filter'];
+  for (const key of nestedKeys) {
+    const nested = isPlainObject(params) ? params[key] : undefined;
+    const nestedQuery = getStringField(nested, ['query', 'name', 'symbol', 'pattern']);
+    if (nestedQuery) {
+      return {
+        query: nestedQuery.value.trim(),
+        source: `${key}.${nestedQuery.source}`,
+        paramKeys,
+      };
+    }
+  }
+
+  return { query: '', source: 'none', paramKeys };
+}
+
 function readFileText(uri: string): string | null {
   const filePath = uriToFilePath(uri);
   if (!filePath) {
@@ -548,12 +586,27 @@ function pathExists(filePath: string): boolean {
   }
 }
 
+function listExistingChildren(root: string, names: string[]): Record<string, boolean> {
+  return Object.fromEntries(names.map((name) => [name, pathExists(path.join(root, name))]));
+}
+
 function logMetadataDebug(env: DevEcoEnv, project: ProjectConfig, rootHint: string | null, resolvedRoot: string): void {
+  const dependencyMapPath = path.join(project.projectRoot, '.hvigor', 'dependencyMap', 'dependencyMap.json5');
   const payload = {
     rootHint,
     resolvedRoot,
     projectRoot: project.projectRoot,
+    projectFiles: listExistingChildren(project.projectRoot, [
+      'oh_modules',
+      'oh-package.json5',
+      'oh-package-lock.json5',
+      'build-profile.json5',
+      '.hvigor',
+    ]),
+    dependencyMapPath,
+    dependencyMapPathExists: pathExists(dependencyMapPath),
     sdkPath: env.sdkPath,
+    sdkChildren: listExistingChildren(env.sdkPath, ['ets', 'kits', 'js', 'api']),
     aceServerPath: env.aceServerPath,
     hvigorPath: env.hvigorPath,
     sdkPathExists: pathExists(env.sdkPath),
@@ -991,14 +1044,18 @@ export function createProxy(
     }
 
     if (method === 'workspace/symbol') {
-      const query = isPlainObject(params) && typeof params.query === 'string' ? params.query : '';
+      const { query, source, paramKeys } = extractWorkspaceSymbolQuery(params);
+      const symbols = project ? parseWorkspaceSymbols(project.projectRoot, query) : [];
       traceLsp('request route', {
         method,
         route: 'proxy-fallback',
         hasProject: Boolean(project),
+        paramKeys,
+        querySource: source,
         queryLength: query.length,
+        resultCount: symbols.length,
       });
-      return Promise.resolve(project ? parseWorkspaceSymbols(project.projectRoot, query) : []);
+      return Promise.resolve(symbols);
     }
 
     const mapped = mapRequest(method, params, openFiles);

@@ -130,7 +130,7 @@ export ARKTS_LSP_SYNC_TIMEOUT_MS=15000
 export ARKTS_LSP_METADATA_DEBUG=1
 ```
 
-开启后，代理会在 stderr 输出注入给 ace-server 的关键工程信息，包括项目根、SDK 路径、module 配置、`aceLoaderPath`、`sdkJsPath` 和这些路径是否存在。
+开启后，代理会在 stderr 输出注入给 ace-server 的关键工程信息，包括项目根、`oh_modules`、`oh-package*.json5`、hvigor `dependencyMap`、SDK 路径、SDK 关键子目录、module 配置、`aceLoaderPath`、`sdkJsPath` 和这些路径是否存在。
 
 ### LSP trace
 
@@ -140,7 +140,7 @@ export ARKTS_LSP_METADATA_DEBUG=1
 export ARKTS_LSP_TRACE=1
 ```
 
-开启后，代理会输出客户端请求/通知的方法名，以及每个请求走的是 `proxy-fallback`、`ace-notification` 还是 `ace-request-forward`。启动时也会输出 `arkts-lsp-proxy` 实际运行版本，便于确认 Claude Code 会话是否已经升级到最新版本。
+开启后，代理会输出客户端请求/通知的方法名，以及每个请求走的是 `proxy-fallback`、`ace-notification` 还是 `ace-request-forward`。启动时也会输出 `arkts-lsp-proxy` 实际运行版本，便于确认 Claude Code 会话是否已经升级到最新版本。对 `workspace/symbol`，trace 会额外输出 query 来源字段、query 长度和返回结果数。
 
 ## 平台支持
 
