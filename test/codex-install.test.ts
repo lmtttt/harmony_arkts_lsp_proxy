@@ -119,6 +119,28 @@ command = "node"
     expect(fs.readFileSync(configPath, 'utf8')).toContain('[mcp_servers.arkts-lsp]');
   });
 
+  it('keeps only the newest three generated backups and leaves manual backups alone', () => {
+    const projectRoot = makeProject();
+    const configDir = path.join(projectRoot, '.codex');
+    const configPath = path.join(configDir, 'config.toml');
+    fs.mkdirSync(configDir);
+    fs.writeFileSync(configPath, '[mcp_servers.other]\ncommand = "node"\n', 'utf8');
+    for (let i = 0; i < 5; i += 1) {
+      fs.writeFileSync(path.join(configDir, `config.toml.bak-20200101T00000${i}Z`), `old-${i}`, 'utf8');
+    }
+    fs.writeFileSync(path.join(configDir, 'config.toml.bak-manual'), 'manual', 'utf8');
+
+    installCodexProjectConfig(projectRoot);
+
+    const files = fs.readdirSync(configDir).sort();
+    const generatedBackups = files.filter((name) => /^config\.toml\.bak-\d{8}T\d{6}Z(?:\.\d+)?$/.test(name));
+    expect(generatedBackups).toHaveLength(3);
+    expect(generatedBackups).not.toContain('config.toml.bak-20200101T000000Z');
+    expect(generatedBackups).not.toContain('config.toml.bak-20200101T000001Z');
+    expect(generatedBackups).not.toContain('config.toml.bak-20200101T000002Z');
+    expect(files).toContain('config.toml.bak-manual');
+  });
+
   it('does not write files during dry run', () => {
     const projectRoot = makeProject();
 

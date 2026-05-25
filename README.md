@@ -120,8 +120,9 @@ HarmonyOS 项目识别由 MCP tools 在运行时根据文件路径、`projectRoo
 | 已有 `.codex/config.toml`，但没有 Codex MCP 配置 | 先备份原文件，再写入 `arkts-lsp` MCP 配置 |
 | 已有 `.codex/config.toml`，且已有其它配置 | 先备份原文件，保留其它配置，只新增或替换 `[mcp_servers.arkts-lsp]` 相关配置 |
 
-备份文件位于同一目录，形如 `config.toml.bak-YYYYMMDDTHHMMSSZ`。如果只是想预览
-将要写入的内容，可以先执行：
+备份文件位于同一目录，形如 `config.toml.bak-YYYYMMDDTHHMMSSZ`。安装脚本只清理
+自己生成的时间戳备份，默认保留最近 3 份；其它手工备份文件不会被删除。如果只是想
+预览将要写入的内容，可以先执行：
 
 ```bash
 npx -y --package arkts-lsp-proxy@latest arkts-lsp-codex-install --dry-run

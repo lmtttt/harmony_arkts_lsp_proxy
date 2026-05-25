@@ -5,6 +5,7 @@ import * as path from 'node:path';
 
 const SERVER_NAME = 'arkts-lsp';
 const CONFIG_RELATIVE_PATH = path.join('.codex', 'config.toml');
+const MAX_GENERATED_BACKUPS = 3;
 
 export const CODEX_MCP_CONFIG_BLOCK = `[mcp_servers.${SERVER_NAME}]
 command = "npx"
@@ -131,6 +132,31 @@ function nextBackupPath(configPath: string): string {
   return candidate;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function cleanupGeneratedBackups(configPath: string): void {
+  const dir = path.dirname(configPath);
+  const basename = path.basename(configPath);
+  const backupPattern = new RegExp(`^${escapeRegExp(basename)}\\.bak-\\d{8}T\\d{6}Z(?:\\.\\d+)?$`);
+  let backups: string[];
+  try {
+    backups = fs.readdirSync(dir).filter((name) => backupPattern.test(name)).sort();
+  } catch {
+    return;
+  }
+
+  const staleBackups = backups.slice(0, Math.max(0, backups.length - MAX_GENERATED_BACKUPS));
+  for (const backup of staleBackups) {
+    try {
+      fs.unlinkSync(path.join(dir, backup));
+    } catch {
+      // Best-effort cleanup only; installation has already preserved the current config.
+    }
+  }
+}
+
 function writeFileAtomically(filePath: string, content: string): void {
   const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
   fs.writeFileSync(tempPath, content, 'utf8');
@@ -155,6 +181,7 @@ export function installCodexProjectConfig(startDir: string, dryRun = false): Ins
       fs.copyFileSync(configPath, backupPath);
     }
     writeFileAtomically(configPath, content);
+    cleanupGeneratedBackups(configPath);
   }
 
   return {
