@@ -1,0 +1,3 @@
+interface:
+  display_name: "ArkTS"
+  short_description: "Use ArkTS language tools for HarmonyOS projects"

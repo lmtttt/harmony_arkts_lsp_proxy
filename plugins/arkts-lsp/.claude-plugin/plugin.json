@@ -1,5 +1,5 @@
 {
   "name": "arkts-lsp",
   "description": "ArkTS language server for Claude Code, wrapping DevEco Studio's ace-server",
-  "version": "0.1.6"
+  "version": "0.1.7"
 }

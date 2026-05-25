@@ -1,10 +1,11 @@
 {
   "name": "arkts-lsp-proxy",
-  "version": "0.1.6",
-  "description": "ArkTS LSP Proxy — bridges DevEco Studio's ace-server to Claude Code",
+  "version": "0.1.7",
+  "description": "ArkTS LSP Proxy — bridges DevEco Studio's ace-server to Claude Code and Codex",
   "main": "dist/index.js",
   "bin": {
-    "arkts-lsp-proxy": "dist/index.js"
+    "arkts-lsp-proxy": "dist/index.js",
+    "arkts-lsp-mcp": "dist/mcp-server.js"
   },
   "scripts": {
     "build": "tsc",
@@ -22,13 +23,15 @@
     "lsp",
     "harmonyos",
     "deveco",
-    "claude-code"
+    "claude-code",
+    "codex",
+    "mcp"
   ],
   "author": "",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/HelloiOS2014/harmony_arkts_lsp_proxy.git"
+    "url": "git+https://github.com/HelloiOS2014/harmony_arkts_lsp_proxy.git"
   },
   "engines": {
     "node": ">=18"

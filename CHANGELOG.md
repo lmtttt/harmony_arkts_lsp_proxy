@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2026-05-25
+
+### Added
+- Codex MCP adapter with the `arkts-lsp-mcp` binary and eight ArkTS tools.
+- Codex plugin packaging with `.codex-plugin/plugin.json`, MCP config, and an ArkTS skill.
+- MCP workflows for project info, symbols, hover, definition, references, signature help, and diagnostics.
+
+### Changed
+- Package metadata and Claude plugin manifests updated to 0.1.7.
+- README now documents both Claude Code LSP and Codex MCP usage.
+
 ## [0.1.0] - 2026-05-08
 
 ### Added
