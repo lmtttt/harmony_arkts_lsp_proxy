@@ -22,6 +22,7 @@ describe('Codex project installer', () => {
 
     expect(result.changed).toBe(true);
     expect(result.projectRoot).toBe(projectRoot);
+    expect(result.backupPath).toBeUndefined();
     expect(fs.readFileSync(path.join(projectRoot, '.codex', 'config.toml'), 'utf8')).toBe(CODEX_MCP_CONFIG_BLOCK);
   });
 
@@ -59,6 +60,35 @@ fast_default_opt_out = true
     const second = installCodexProjectConfig(projectRoot);
 
     expect(second.changed).toBe(false);
+    expect(second.backupPath).toBeUndefined();
+  });
+
+  it('backs up existing Codex project config before changing it', () => {
+    const projectRoot = makeProject();
+    const configDir = path.join(projectRoot, '.codex');
+    const configPath = path.join(configDir, 'config.toml');
+    const existing = `[mcp_servers.other]
+command = "node"
+`;
+    fs.mkdirSync(configDir);
+    fs.writeFileSync(configPath, existing, 'utf8');
+
+    const result = installCodexProjectConfig(projectRoot);
+
+    expect(result.changed).toBe(true);
+    expect(result.backupPath).toMatch(/config\.toml\.bak-\d{8}T\d{6}Z$/);
+    expect(fs.readFileSync(result.backupPath as string, 'utf8')).toBe(existing);
+    expect(fs.readFileSync(configPath, 'utf8')).toContain('[mcp_servers.arkts-lsp]');
+  });
+
+  it('does not write files during dry run', () => {
+    const projectRoot = makeProject();
+
+    const result = installCodexProjectConfig(projectRoot, true);
+
+    expect(result.changed).toBe(true);
+    expect(result.backupPath).toBeUndefined();
+    expect(fs.existsSync(path.join(projectRoot, '.codex', 'config.toml'))).toBe(false);
   });
 
   it('fails outside a HarmonyOS project', () => {

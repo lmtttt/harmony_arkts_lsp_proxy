@@ -24,6 +24,7 @@ interface CliOptions {
 interface InstallResult {
   projectRoot: string;
   configPath: string;
+  backupPath?: string;
   changed: boolean;
   content: string;
 }
@@ -103,6 +104,27 @@ export function upsertCodexMcpConfig(existing: string): string {
   return `${withoutOldBlock ? `${withoutOldBlock}\n\n` : ''}${CODEX_MCP_CONFIG_BLOCK}`;
 }
 
+function formatTimestamp(date = new Date()): string {
+  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function nextBackupPath(configPath: string): string {
+  const basePath = `${configPath}.bak-${formatTimestamp()}`;
+  let candidate = basePath;
+  let suffix = 1;
+  while (fs.existsSync(candidate)) {
+    candidate = `${basePath}.${suffix}`;
+    suffix += 1;
+  }
+  return candidate;
+}
+
+function writeFileAtomically(filePath: string, content: string): void {
+  const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  fs.writeFileSync(tempPath, content, 'utf8');
+  fs.renameSync(tempPath, filePath);
+}
+
 export function installCodexProjectConfig(startDir: string, dryRun = false): InstallResult {
   const projectRoot = findProjectRoot(startDir);
   if (!projectRoot) {
@@ -113,18 +135,25 @@ export function installCodexProjectConfig(startDir: string, dryRun = false): Ins
 
   const codexDir = path.join(projectRoot, '.codex');
   const configPath = path.join(projectRoot, CONFIG_RELATIVE_PATH);
-  const existing = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+  const hadExistingConfig = fs.existsSync(configPath);
+  const existing = hadExistingConfig ? fs.readFileSync(configPath, 'utf8') : '';
   const content = upsertCodexMcpConfig(existing);
   const changed = existing !== content;
+  let backupPath: string | undefined;
 
   if (!dryRun && changed) {
     fs.mkdirSync(codexDir, { recursive: true });
-    fs.writeFileSync(configPath, content, 'utf8');
+    if (hadExistingConfig) {
+      backupPath = nextBackupPath(configPath);
+      fs.copyFileSync(configPath, backupPath);
+    }
+    writeFileAtomically(configPath, content);
   }
 
   return {
     projectRoot,
     configPath,
+    backupPath,
     changed,
     content,
   };
@@ -141,6 +170,9 @@ function main(): void {
     const result = installCodexProjectConfig(options.startDir, options.dryRun);
     process.stdout.write(`[arkts-lsp] project: ${result.projectRoot}\n`);
     process.stdout.write(`[arkts-lsp] codex config: ${result.configPath}\n`);
+    if (result.backupPath) {
+      process.stdout.write(`[arkts-lsp] backup: ${result.backupPath}\n`);
+    }
     if (options.dryRun) {
       process.stdout.write('\n');
       process.stdout.write(result.content);
