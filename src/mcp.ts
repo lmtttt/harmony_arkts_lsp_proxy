@@ -213,7 +213,7 @@ export function createMcpHandler(service: ArktsMcpService = createArktsMcpServic
           },
           serverInfo: {
             name: 'arkts-lsp-proxy',
-            version: '0.1.7',
+            version: '0.1.8',
           },
         });
       }

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-05-25
+
+### Added
+- `arkts-lsp-codex-install` project installer for Codex project-scoped MCP config.
+
+### Changed
+- Codex setup now targets `<project>/.codex/config.toml` instead of a global Codex marketplace plugin.
+
+### Removed
+- Codex marketplace plugin packaging to avoid global MCP/tool exposure in non-HarmonyOS projects.
+
 ## [0.1.7] - 2026-05-25
 
 ### Added

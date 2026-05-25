@@ -80,40 +80,37 @@ arkts-lsp-mcp
 /plugin install arkts-lsp
 ```
 
-### Codex 插件（MCP）
+### Codex 项目级 MCP
 
-Codex 不需要手动 `npm install -g`，也不需要用户先 clone 本仓库。
-把这个 GitHub 仓库添加为 Codex marketplace，然后在 Codex 插件页安装 `ArkTS LSP`：
+Codex 不使用全局 marketplace 安装。为了避免普通项目加载 ArkTS MCP 工具，
+请在 HarmonyOS 项目根目录执行项目级安装脚本：
 
 ```bash
-codex plugin marketplace add HelloiOS2014/harmony_arkts_lsp_proxy
+npx -y --package arkts-lsp-proxy@latest arkts-lsp-codex-install
 ```
 
-添加后，Codex 会把 marketplace clone 到自己的内部 cache，并读取：
+脚本会自动定位包含 `build-profile.json5` 的 HarmonyOS 项目根目录，并写入：
 
 ```text
-.agents/plugins/marketplace.json
-plugins/arkts-codex/
+<project>/.codex/config.toml
 ```
 
-然后在 Codex 插件列表里安装或启用 `ArkTS LSP`。打开 HarmonyOS 工程后，
-直接让 Codex 处理 `.ets` / ArkTS 文件即可。
+写入内容等价于：
 
-内部实际执行的是下面这个 MCP server 配置：
+```toml
+[mcp_servers.arkts-lsp]
+command = "npx"
+args = ["-y", "--package", "arkts-lsp-proxy@latest", "arkts-lsp-mcp"]
 
-```json
-{
-  "mcpServers": {
-    "arkts-lsp": {
-      "command": "npx",
-      "args": ["-y", "--package", "arkts-lsp-proxy@latest", "arkts-lsp-mcp"]
-    }
-  }
-}
+[mcp_servers.arkts-lsp.env]
+ARKTS_LSP_SYNC = "auto"
 ```
 
-也就是说，Codex marketplace 负责分发 `plugins/arkts-codex/`；npm 包只是运行时工具来源。
-插件同时包含一个很薄的 `arkts` skill，用于提示 Codex 在处理 HarmonyOS / ArkTS / `.ets` 文件时优先调用 ArkTS MCP tools，而不是把 ArkTS 当普通浏览器 TypeScript。
+这样 ArkTS MCP 只在该 HarmonyOS 项目中生效；其它项目没有这段项目级
+`.codex/config.toml`，不会暴露 ArkTS tools，也不会占用工具上下文。
+
+注意：Codex 只会读取 trusted project 的项目级 `.codex/config.toml`。安装后请在
+该项目根目录启动 Codex，必要时重启当前 Codex 会话。
 
 ### npm 全局安装（手动 CLI 使用）
 
@@ -247,35 +244,28 @@ src/
 ├── mcp-tools.ts    ArkTS MCP tools 的实现
 ├── mcp.ts          MCP JSON-RPC 协议处理与 stdio server
 ├── mcp-server.ts   arkts-lsp-mcp 入口
+├── codex-install.ts Codex 项目级 MCP 安装脚本
 └── index.ts        arkts-lsp-proxy 入口
 .claude-plugin/
 └── marketplace.json    marketplace 清单 + lspServers 配置
-.agents/
-└── plugins/
-    └── marketplace.json    Codex marketplace 清单
 plugins/
-├── arkts-lsp/
-│   ├── .claude-plugin/
-│   │   └── plugin.json     Claude Code 插件清单
-│   ├── hooks/
-│   │   └── hooks.json      SessionStart 自动安装 hook
-│   ├── package.json        npm 依赖声明（供 hook 自动安装）
-│   ├── .lsp.json           LSP 服务器配置
-│   └── README.md           Claude Code 插件文档
-└── arkts-codex/
-    ├── .codex-plugin/
-    │   └── plugin.json     Codex 插件清单
-    ├── .mcp.json           MCP server 配置
-    ├── skills/
-    │   └── arkts/
-    │       └── SKILL.md    Codex 薄 skill
-    └── README.md           Codex 插件文档
+└── arkts-lsp/
+    ├── .claude-plugin/
+    │   └── plugin.json     Claude Code 插件清单
+    ├── hooks/
+    │   └── hooks.json      SessionStart 自动安装 hook
+    ├── package.json        npm 依赖声明（供 hook 自动安装）
+    ├── .lsp.json           LSP 服务器配置
+    └── README.md           Claude Code 插件文档
 test/
+├── codex-install.test.ts
 ├── env.test.ts
 ├── project.test.ts
 ├── hvigor.test.ts
 ├── ace-server.test.ts
 ├── proxy.test.ts
+├── mcp.test.ts
+├── mcp-tools.test.ts
 ├── index.test.ts
 └── fixtures/
 ```

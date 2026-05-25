@@ -1,11 +1,12 @@
 {
   "name": "arkts-lsp-proxy",
-  "version": "0.1.7",
-  "description": "ArkTS LSP Proxy — bridges DevEco Studio's ace-server to Claude Code and Codex",
+  "version": "0.1.8",
+  "description": "ArkTS LSP Proxy — bridges DevEco Studio's ace-server to Claude Code and project-scoped Codex MCP",
   "main": "dist/index.js",
   "bin": {
     "arkts-lsp-proxy": "dist/index.js",
-    "arkts-lsp-mcp": "dist/mcp-server.js"
+    "arkts-lsp-mcp": "dist/mcp-server.js",
+    "arkts-lsp-codex-install": "dist/codex-install.js"
   },
   "scripts": {
     "build": "tsc",
