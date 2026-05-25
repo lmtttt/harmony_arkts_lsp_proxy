@@ -10,6 +10,21 @@ which wraps DevEco Studio's bundled `ace-server`.
 - Node.js available for `npx`.
 - Optional: set `DEVECO_HOME` when DevEco Studio is not in a default location.
 
+## Install
+
+Open the plugin from this repository's marketplace entry:
+
+[View arkts-codex](codex://plugins/arkts-codex?marketplacePath=%2FUsers%2FJOYY%2Fcode%2Frsearch%2Fharmony_arkts_lsp_proxy%2F.agents%2Fplugins%2Fmarketplace.json)
+
+Then install or enable `ArkTS LSP` in Codex.
+
+You do not need to install the npm package globally. The plugin starts the MCP
+server with:
+
+```bash
+npx -y --package arkts-lsp-proxy@latest arkts-lsp-mcp
+```
+
 ## Components
 
 - `.codex-plugin/plugin.json`: Codex plugin manifest.
