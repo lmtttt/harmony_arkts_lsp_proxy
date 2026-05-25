@@ -82,14 +82,15 @@ arkts-lsp-mcp
 
 ### Codex 项目级 MCP
 
-Codex 不使用全局 marketplace 安装。为了避免普通项目加载 ArkTS MCP 工具，
-请在 HarmonyOS 项目根目录执行项目级安装脚本：
+Codex 不使用全局 marketplace 安装。为了避免所有项目都加载 ArkTS MCP 工具，
+请在需要启用 ArkTS 能力的 Codex 项目目录执行项目级安装脚本：
 
 ```bash
 npx -y --package arkts-lsp-proxy@latest arkts-lsp-codex-install
 ```
 
-脚本会自动定位包含 `build-profile.json5` 的 HarmonyOS 项目根目录，并写入：
+脚本只负责写入当前项目的 Codex 配置，不会判断该目录是不是 HarmonyOS 项目，也不会扫描
+子目录。它会写入：
 
 ```text
 <project>/.codex/config.toml
@@ -106,8 +107,10 @@ args = ["-y", "--package", "arkts-lsp-proxy@latest", "arkts-lsp-mcp"]
 ARKTS_LSP_SYNC = "auto"
 ```
 
-这样 ArkTS MCP 只在该 HarmonyOS 项目中生效；其它项目没有这段项目级
-`.codex/config.toml`，不会暴露 ArkTS tools，也不会占用工具上下文。
+这样 ArkTS MCP 只在该 Codex 项目中生效；其它项目没有这段项目级
+`.codex/config.toml`，不会暴露 ArkTS tools，也不会占用工具上下文。真正的
+HarmonyOS 项目识别由 MCP tools 在运行时根据文件路径、`projectRoot` 或 `startPath`
+完成。
 
 安装脚本会按当前项目状态处理：
 

@@ -10,20 +10,43 @@ import {
 
 function makeProject(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkts-codex-install-'));
-  fs.writeFileSync(path.join(root, 'build-profile.json5'), '{ app: {}, modules: [] }', 'utf8');
   return root;
 }
 
 describe('Codex project installer', () => {
-  it('creates project-scoped Codex MCP config in a HarmonyOS project', () => {
+  it('creates project-scoped Codex MCP config in the requested project directory', () => {
     const projectRoot = makeProject();
 
     const result = installCodexProjectConfig(projectRoot);
 
     expect(result.changed).toBe(true);
-    expect(result.projectRoot).toBe(projectRoot);
+    expect(result.installRoot).toBe(projectRoot);
     expect(result.backupPath).toBeUndefined();
     expect(fs.readFileSync(path.join(projectRoot, '.codex', 'config.toml'), 'utf8')).toBe(CODEX_MCP_CONFIG_BLOCK);
+  });
+
+  it('uses the containing directory when cwd points at a file', () => {
+    const projectRoot = makeProject();
+    const filePath = path.join(projectRoot, 'README.md');
+    fs.writeFileSync(filePath, '# demo\n', 'utf8');
+
+    const result = installCodexProjectConfig(filePath);
+
+    expect(result.installRoot).toBe(projectRoot);
+    expect(fs.readFileSync(path.join(projectRoot, '.codex', 'config.toml'), 'utf8')).toBe(CODEX_MCP_CONFIG_BLOCK);
+  });
+
+  it('does not scan for nested HarmonyOS projects during install', () => {
+    const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arkts-codex-workspace-'));
+    const arktsProjectRoot = path.join(workspaceRoot, 'apps', 'phone');
+    fs.mkdirSync(arktsProjectRoot, { recursive: true });
+    fs.writeFileSync(path.join(arktsProjectRoot, 'build-profile.json5'), '{ app: {}, modules: [] }', 'utf8');
+
+    const result = installCodexProjectConfig(workspaceRoot);
+
+    expect(result.installRoot).toBe(workspaceRoot);
+    expect(fs.readFileSync(path.join(workspaceRoot, '.codex', 'config.toml'), 'utf8')).toBe(CODEX_MCP_CONFIG_BLOCK);
+    expect(fs.existsSync(path.join(arktsProjectRoot, '.codex', 'config.toml'))).toBe(false);
   });
 
   it('installs into an existing empty Codex project config', () => {
@@ -106,9 +129,12 @@ command = "node"
     expect(fs.existsSync(path.join(projectRoot, '.codex', 'config.toml'))).toBe(false);
   });
 
-  it('fails outside a HarmonyOS project', () => {
+  it('installs even when the requested project directory is not a HarmonyOS project', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'arkts-not-project-'));
 
-    expect(() => installCodexProjectConfig(root)).toThrow(/HarmonyOS project root not found/);
+    const result = installCodexProjectConfig(root);
+
+    expect(result.installRoot).toBe(root);
+    expect(fs.readFileSync(path.join(root, '.codex', 'config.toml'), 'utf8')).toBe(CODEX_MCP_CONFIG_BLOCK);
   });
 });

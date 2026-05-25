@@ -2,7 +2,6 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { findProjectRoot } from './project';
 
 const SERVER_NAME = 'arkts-lsp';
 const CONFIG_RELATIVE_PATH = path.join('.codex', 'config.toml');
@@ -22,7 +21,7 @@ interface CliOptions {
 }
 
 interface InstallResult {
-  projectRoot: string;
+  installRoot: string;
   configPath: string;
   backupPath?: string;
   changed: boolean;
@@ -32,10 +31,10 @@ interface InstallResult {
 function usage(): string {
   return `Usage: arkts-lsp-codex-install [--cwd <path>] [--dry-run]
 
-Install ArkTS LSP MCP into the current HarmonyOS project's .codex/config.toml.
+Install ArkTS LSP MCP into a Codex project .codex/config.toml.
 
 Options:
-  --cwd <path>  Start project detection from this directory or file.
+  --cwd <path>  Project directory to install into, or a file inside it.
   --dry-run     Print the config path and content without writing files.
   -h, --help    Show this help.
 `;
@@ -75,6 +74,19 @@ function parseArgs(argv: string[]): CliOptions {
   }
 
   return options;
+}
+
+function isExistingFile(filePath: string): boolean {
+  try {
+    return fs.statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function resolveInstallRoot(startDir: string): string {
+  const resolved = path.resolve(startDir);
+  return isExistingFile(resolved) ? path.dirname(resolved) : resolved;
 }
 
 function isArktsServerTable(tableName: string): boolean {
@@ -126,15 +138,10 @@ function writeFileAtomically(filePath: string, content: string): void {
 }
 
 export function installCodexProjectConfig(startDir: string, dryRun = false): InstallResult {
-  const projectRoot = findProjectRoot(startDir);
-  if (!projectRoot) {
-    throw new Error(
-      `HarmonyOS project root not found from ${path.resolve(startDir)}. Run this command inside a project with build-profile.json5.`,
-    );
-  }
+  const installRoot = resolveInstallRoot(startDir);
 
-  const codexDir = path.join(projectRoot, '.codex');
-  const configPath = path.join(projectRoot, CONFIG_RELATIVE_PATH);
+  const codexDir = path.join(installRoot, '.codex');
+  const configPath = path.join(installRoot, CONFIG_RELATIVE_PATH);
   const hadExistingConfig = fs.existsSync(configPath);
   const existing = hadExistingConfig ? fs.readFileSync(configPath, 'utf8') : '';
   const content = upsertCodexMcpConfig(existing);
@@ -151,7 +158,7 @@ export function installCodexProjectConfig(startDir: string, dryRun = false): Ins
   }
 
   return {
-    projectRoot,
+    installRoot,
     configPath,
     backupPath,
     changed,
@@ -168,7 +175,7 @@ function main(): void {
     }
 
     const result = installCodexProjectConfig(options.startDir, options.dryRun);
-    process.stdout.write(`[arkts-lsp] project: ${result.projectRoot}\n`);
+    process.stdout.write(`[arkts-lsp] install root: ${result.installRoot}\n`);
     process.stdout.write(`[arkts-lsp] codex config: ${result.configPath}\n`);
     if (result.backupPath) {
       process.stdout.write(`[arkts-lsp] backup: ${result.backupPath}\n`);

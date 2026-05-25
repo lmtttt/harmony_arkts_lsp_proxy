@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Codex setup now targets `<project>/.codex/config.toml` instead of a global Codex marketplace plugin.
+- `arkts-lsp-codex-install` installs into the requested Codex project directory without requiring `build-profile.json5`.
 
 ### Removed
 - Codex marketplace plugin packaging to avoid global MCP/tool exposure in non-HarmonyOS projects.
