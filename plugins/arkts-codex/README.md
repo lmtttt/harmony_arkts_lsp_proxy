@@ -12,11 +12,13 @@ which wraps DevEco Studio's bundled `ace-server`.
 
 ## Install
 
-Open the plugin from this repository's marketplace entry:
+Add this repository as a Codex marketplace:
 
-[View arkts-codex](codex://plugins/arkts-codex?marketplacePath=%2FUsers%2FJOYY%2Fcode%2Frsearch%2Fharmony_arkts_lsp_proxy%2F.agents%2Fplugins%2Fmarketplace.json)
+```bash
+codex plugin marketplace add HelloiOS2014/harmony_arkts_lsp_proxy
+```
 
-Then install or enable `ArkTS LSP` in Codex.
+Then install or enable `ArkTS LSP` from the Codex plugin list.
 
 You do not need to install the npm package globally. The plugin starts the MCP
 server with:

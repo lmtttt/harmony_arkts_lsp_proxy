@@ -82,13 +82,22 @@ arkts-lsp-mcp
 
 ### Codex 插件（MCP）
 
-Codex 不需要手动 `npm install -g`。安装的是本仓库里的 Codex 插件，
-插件启动时会用 `npx` 自动拉取已发布的 `arkts-lsp-proxy@latest`。
+Codex 不需要手动 `npm install -g`，也不需要用户先 clone 本仓库。
+把这个 GitHub 仓库添加为 Codex marketplace，然后在 Codex 插件页安装 `ArkTS LSP`：
 
-1. 在 Codex 中打开这个插件：
-   [View arkts-codex](codex://plugins/arkts-codex?marketplacePath=%2FUsers%2FJOYY%2Fcode%2Frsearch%2Fharmony_arkts_lsp_proxy%2F.agents%2Fplugins%2Fmarketplace.json)
-2. 点击安装或启用 `ArkTS LSP`。
-3. 打开 HarmonyOS 工程后，直接让 Codex 处理 `.ets` / ArkTS 文件即可。
+```bash
+codex plugin marketplace add HelloiOS2014/harmony_arkts_lsp_proxy
+```
+
+添加后，Codex 会把 marketplace clone 到自己的内部 cache，并读取：
+
+```text
+.agents/plugins/marketplace.json
+plugins/arkts-codex/
+```
+
+然后在 Codex 插件列表里安装或启用 `ArkTS LSP`。打开 HarmonyOS 工程后，
+直接让 Codex 处理 `.ets` / ArkTS 文件即可。
 
 内部实际执行的是下面这个 MCP server 配置：
 
@@ -103,7 +112,7 @@ Codex 不需要手动 `npm install -g`。安装的是本仓库里的 Codex 插�
 }
 ```
 
-也就是说，Codex 装的是 `plugins/arkts-codex/`；npm 包只是运行时工具来源。
+也就是说，Codex marketplace 负责分发 `plugins/arkts-codex/`；npm 包只是运行时工具来源。
 插件同时包含一个很薄的 `arkts` skill，用于提示 Codex 在处理 HarmonyOS / ArkTS / `.ets` 文件时优先调用 ArkTS MCP tools，而不是把 ArkTS 当普通浏览器 TypeScript。
 
 ### npm 全局安装（手动 CLI 使用）
