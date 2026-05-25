@@ -109,6 +109,21 @@ ARKTS_LSP_SYNC = "auto"
 这样 ArkTS MCP 只在该 HarmonyOS 项目中生效；其它项目没有这段项目级
 `.codex/config.toml`，不会暴露 ArkTS tools，也不会占用工具上下文。
 
+安装脚本会按当前项目状态处理：
+
+| 场景 | 行为 |
+|------|------|
+| 没有 `.codex/config.toml` | 创建 `.codex/` 目录和新的 `config.toml` |
+| 已有 `.codex/config.toml`，但没有 Codex MCP 配置 | 先备份原文件，再写入 `arkts-lsp` MCP 配置 |
+| 已有 `.codex/config.toml`，且已有其它配置 | 先备份原文件，保留其它配置，只新增或替换 `[mcp_servers.arkts-lsp]` 相关配置 |
+
+备份文件位于同一目录，形如 `config.toml.bak-YYYYMMDDTHHMMSSZ`。如果只是想预览
+将要写入的内容，可以先执行：
+
+```bash
+npx -y --package arkts-lsp-proxy@latest arkts-lsp-codex-install --dry-run
+```
+
 注意：Codex 只会读取 trusted project 的项目级 `.codex/config.toml`。安装后请在
 该项目根目录启动 Codex，必要时重启当前 Codex 会话。
 

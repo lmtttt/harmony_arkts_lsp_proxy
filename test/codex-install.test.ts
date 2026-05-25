@@ -26,6 +26,21 @@ describe('Codex project installer', () => {
     expect(fs.readFileSync(path.join(projectRoot, '.codex', 'config.toml'), 'utf8')).toBe(CODEX_MCP_CONFIG_BLOCK);
   });
 
+  it('installs into an existing empty Codex project config', () => {
+    const projectRoot = makeProject();
+    const configDir = path.join(projectRoot, '.codex');
+    const configPath = path.join(configDir, 'config.toml');
+    fs.mkdirSync(configDir);
+    fs.writeFileSync(configPath, '', 'utf8');
+
+    const result = installCodexProjectConfig(projectRoot);
+
+    expect(result.changed).toBe(true);
+    expect(result.backupPath).toMatch(/config\.toml\.bak-\d{8}T\d{6}Z$/);
+    expect(fs.readFileSync(result.backupPath as string, 'utf8')).toBe('');
+    expect(fs.readFileSync(configPath, 'utf8')).toBe(CODEX_MCP_CONFIG_BLOCK);
+  });
+
   it('updates only the ArkTS MCP block while preserving other project config', () => {
     const existing = `[projects."/tmp/demo"]
 trust_level = "trusted"
