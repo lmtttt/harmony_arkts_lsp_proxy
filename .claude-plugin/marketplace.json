@@ -8,7 +8,7 @@
     {
       "name": "arkts-lsp",
       "description": "ArkTS language server for Claude Code, wrapping DevEco Studio's ace-server with hvigor sync and LSP proxy",
-      "version": "0.1.8",
+      "version": "0.1.7",
       "strict": false,
       "source": "./plugins/arkts-lsp",
       "category": "development",
