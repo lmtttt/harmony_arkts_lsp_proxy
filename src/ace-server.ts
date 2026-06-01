@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { DevEcoEnv } from './env';
+import { toWindowsPath } from './env';
 
 export type ExitHandler = (code: number | null, signal: string | null) => void;
 
@@ -25,10 +26,13 @@ export function startAceServer(env: DevEcoEnv): AceServerHandle {
   const logDir = createLogDir();
   process.stderr.write(`[arkts-lsp] ace-server logs: ${logDir}\n`);
 
+  // On WSL: executable + cwd stay as WSL paths; arguments must be Windows paths
+  const aceServerPath = toWindowsPath(env.aceServerPath);
+
   const child = spawn(env.nodeBin, [
     '--max-old-space-size=8192',
     '--expose-gc',
-    env.aceServerPath,
+    aceServerPath,
     '--stdio',
     `--logger-path=${logDir}`,
     '--logger-level=INFO',

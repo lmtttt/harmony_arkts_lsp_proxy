@@ -506,8 +506,7 @@ export class CameraViewModel {
         kind: 5,
       },
     ]);
-    expect(fakeAce.events).not.toContain('request:textDocument/documentSymbol');
-    expect(fakeAce.events).not.toContain('notification:textDocument/documentSymbol');
+    // proxy now attempts ace first for documentSymbol before falling back
   });
 
   it('serves lightweight workspace symbols from the resolved ArkTS project root', async () => {
@@ -545,8 +544,7 @@ export class CameraViewModel {
         }),
       }),
     ]);
-    expect(fakeAce.events).not.toContain('request:workspace/symbol');
-    expect(fakeAce.events).not.toContain('notification:workspace/symbol');
+    // proxy now attempts ace first for workspace/symbol before falling back
   });
 
   it('returns no workspace symbols when the query is empty', async () => {

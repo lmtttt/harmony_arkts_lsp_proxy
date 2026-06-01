@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { spawn, spawnSync } from 'child_process';
 import type { DevEcoEnv } from './env';
+import { toWindowsPath } from './env';
 
 export type HvigorMetadataStateName = 'fresh' | 'stale' | 'missing';
 export type HvigorSyncMode = 'auto' | 'off' | 'force';
@@ -123,12 +124,13 @@ export async function runHvigorSyncAsync(
   return new Promise((resolve) => {
     let settled = false;
     let stderr = '';
-    const child = spawn(env.nodeBin, [env.hvigorPath, ...HVIGOR_FLAGS], {
+    // On WSL: executable + cwd stay as WSL paths; arguments must be Windows paths
+    const child = spawn(env.nodeBin, [toWindowsPath(env.hvigorPath), ...HVIGOR_FLAGS], {
       cwd: projectRoot,
       windowsHide: true,
       env: {
         ...process.env,
-        DEVECO_SDK_HOME: env.sdkPath,
+        DEVECO_SDK_HOME: toWindowsPath(env.sdkPath),
       },
     });
 
@@ -199,14 +201,15 @@ export function runHvigorSync(env: DevEcoEnv, projectRoot: string): boolean {
 
   process.stderr.write('[arkts-lsp] hvigor sync starting...\n');
   const startTime = Date.now();
-  const result = spawnSync(env.nodeBin, [env.hvigorPath, ...HVIGOR_FLAGS], {
+  // On WSL: executable + cwd stay as WSL paths; arguments must be Windows paths
+  const result = spawnSync(env.nodeBin, [toWindowsPath(env.hvigorPath), ...HVIGOR_FLAGS], {
     cwd: projectRoot,
     timeout: LEGACY_HVIGOR_TIMEOUT_MS,
     windowsHide: true,
     encoding: 'utf8',
     env: {
       ...process.env,
-      DEVECO_SDK_HOME: env.sdkPath,
+      DEVECO_SDK_HOME: toWindowsPath(env.sdkPath),
     },
   });
 

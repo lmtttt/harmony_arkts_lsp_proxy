@@ -51,7 +51,10 @@ describe('findDevEcoEnv', () => {
     expect(env!.devecoHome).toBe(path.join(fakeApp, 'Contents'));
     expect(env!.aceServerPath).toContain('ace-server/out/index.js');
     expect(env!.sdkPath).toContain('sdk/default');
-    expect(env!.nodeBin).toContain('tools/node/bin/node');
+    const isWinOrWsl = process.platform === 'win32' ||
+      (process.platform === 'linux' && fs.existsSync('/proc/sys/fs/binfmt_misc/WSLInterop'));
+    const expectedNodeBin = isWinOrWsl ? 'tools/node/node.exe' : 'tools/node/bin/node';
+    expect(env!.nodeBin).toContain(expectedNodeBin);
     expect(env!.hvigorPath).toContain('tools/hvigor/bin/hvigorw.js');
   });
 

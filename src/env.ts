@@ -13,6 +13,8 @@ export interface DevEcoEnv {
 const PLATFORM = process.platform;
 const IS_MAC = PLATFORM === 'darwin';
 const IS_WIN = PLATFORM === 'win32';
+const IS_WSL = PLATFORM === 'linux' && fs.existsSync('/proc/sys/fs/binfmt_misc/WSLInterop');
+const IS_WIN_OR_WSL = IS_WIN || IS_WSL;
 
 const DEFAULT_PATHS: Record<string, string[]> = {
   darwin: [
@@ -66,8 +68,8 @@ function validateDevEcoHome(candidate: string): DevEcoEnv | null {
   const sdkPkg = path.join(contentsPath, 'sdk', 'default', 'sdk-pkg.json');
   if (!fs.existsSync(sdkPkg)) return null;
 
-  const nodeName = IS_WIN ? 'node.exe' : 'node';
-  const nodeBinDir = IS_WIN ? '' : 'bin';
+  const nodeName = IS_WIN_OR_WSL ? 'node.exe' : 'node';
+  const nodeBinDir = IS_WIN_OR_WSL ? '' : 'bin';
   const nodeBin = path.join(contentsPath, 'tools', 'node', nodeBinDir, nodeName);
   const hvigorPath = path.join(contentsPath, 'tools', 'hvigor', 'bin', 'hvigorw.js');
 
@@ -96,4 +98,17 @@ export function findDevEcoEnv(): DevEcoEnv | null {
   }
 
   return null;
+}
+
+function wslPathToWindows(wslPath: string): string {
+  if (!IS_WSL) return wslPath;
+  const match = wslPath.match(/^\/mnt\/([a-z])\/(.*)/);
+  if (!match) return wslPath;
+  const drive = match[1].toUpperCase();
+  const rest = match[2].replace(/\//g, '\\');
+  return `${drive}:\\${rest}`;
+}
+
+export function toWindowsPath(unixPath: string): string {
+  return wslPathToWindows(unixPath);
 }

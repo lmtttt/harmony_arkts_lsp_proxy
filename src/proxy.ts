@@ -91,6 +91,15 @@ const ACE_REQUEST_METHODS: Record<string, string> = {
   'textDocument/definition': 'aceProject/onAsyncDefinition',
   'textDocument/references': ACE_FIND_USAGES_METHOD,
   'textDocument/signatureHelp': 'aceProject/onAsyncSignatureHelp',
+  'textDocument/rename': 'aceProject/onAsyncRename',
+  'textDocument/prepareRename': 'aceProject/onAsyncPrepareRename',
+  'textDocument/codeAction': 'aceProject/onAsyncCodeAction',
+  'textDocument/implementation': 'aceProject/onAsyncImplementation',
+  'textDocument/documentHighlight': 'aceProject/onAsyncDocumentHighlight',
+  'textDocument/documentLink': 'aceProject/onAsyncDocumentLinks',
+  'textDocument/inlayHint': 'aceProject/onInlayHints',
+  'textDocument/prepareCallHierarchy': 'aceProject/onAsyncCallHierarchy',
+  'textDocument/prepareTypeHierarchy': 'aceProject/onAsyncTypeHierarchy',
 };
 
 const ACE_RESPONSE_METHODS = new Set(Object.values(ACE_REQUEST_METHODS));
@@ -256,6 +265,21 @@ function addProxyCapabilities(result: unknown): unknown {
       ...capabilities,
       documentSymbolProvider: true,
       workspaceSymbolProvider: true,
+      renameProvider: { prepareProvider: true },
+      codeActionProvider: true,
+      implementationProvider: true,
+      documentHighlightProvider: true,
+      documentLinkProvider: true,
+      callHierarchyProvider: true,
+      typeHierarchyProvider: true,
+      inlayHintProvider: true,
+      foldingRangeProvider: true,
+      selectionRangeProvider: true,
+      declarationProvider: true,
+      linkedEditingRangeProvider: true,
+      colorProvider: true,
+      documentFormattingProvider: true,
+      documentRangeFormattingProvider: true,
     },
   };
 }
@@ -328,55 +352,34 @@ function getTextDocumentUri(params: RpcParams): string | null {
   return typeof textDocument?.uri === 'string' ? textDocument.uri : null;
 }
 
-function getStringField(value: unknown, keys: string[]): { value: string; source: string } | null {
-  if (!isPlainObject(value)) {
-    return null;
-  }
-
+interface StringFieldQuery { value: string; source: string }
+function getStringField(value: unknown, keys: string[]): StringFieldQuery | null {
+  if (!isPlainObject(value)) return null;
   for (const key of keys) {
-    const candidate = value[key];
-    if (typeof candidate === 'string') {
-      return { value: candidate, source: key };
+    if (typeof (value as Record<string,unknown>)[key] === 'string') {
+      return { value: (value as Record<string,unknown>)[key] as string, source: key };
     }
   }
-
   return null;
 }
 
 function extractWorkspaceSymbolQuery(params: RpcParams): { query: string; source: string; paramKeys: string[] } {
   const paramKeys = isPlainObject(params) ? Object.keys(params).sort() : [];
   const root = getStringField(params, ['query', 'name', 'symbol', 'pattern']);
-  if (root) {
-    return { query: root.value.trim(), source: root.source, paramKeys };
-  }
-
+  if (root) return { query: root.value.trim(), source: root.source, paramKeys };
   const nestedKeys = ['params', 'input', 'data', 'filter'];
   for (const key of nestedKeys) {
     const nested = isPlainObject(params) ? params[key] : undefined;
     const nestedQuery = getStringField(nested, ['query', 'name', 'symbol', 'pattern']);
-    if (nestedQuery) {
-      return {
-        query: nestedQuery.value.trim(),
-        source: `${key}.${nestedQuery.source}`,
-        paramKeys,
-      };
-    }
+    if (nestedQuery) return { query: nestedQuery.value.trim(), source: `${key}.${nestedQuery.source}`, paramKeys };
   }
-
   return { query: '', source: 'none', paramKeys };
 }
 
 function readFileText(uri: string): string | null {
   const filePath = uriToFilePath(uri);
-  if (!filePath) {
-    return null;
-  }
-
-  try {
-    return fs.readFileSync(filePath, 'utf8');
-  } catch {
-    return null;
-  }
+  if (!filePath) return null;
+  try { return fs.readFileSync(filePath, 'utf8'); } catch { return null; }
 }
 
 function createRequestPayload(params: RpcParams): RpcPayload {
@@ -1011,7 +1014,7 @@ export function createProxy(
     return initializePromise;
   }
 
-  function onRequest(method: string, params: RpcParams): Promise<RpcResult> {
+  async function onRequest(method: string, params: RpcParams): Promise<RpcResult> {
     traceLsp('client request', {
       method,
       initialized: isInitialized,
@@ -1027,34 +1030,40 @@ export function createProxy(
       return Promise.reject(new ResponseError(ErrorCodes.ServerNotInitialized, 'Initialize first.'));
     }
 
+    // documentSymbol / workspaceSymbol: prefer ace, fallback to proxy parser
     if (method === 'textDocument/documentSymbol') {
       const uri = getTextDocumentUri(params);
       if (!uri) {
         traceLsp('request route', { method, route: 'proxy-fallback', reason: 'missing-uri' });
         return Promise.resolve([]);
       }
+      if (aceConn && isServerReady) {
+        const aceResult = await sendAceRequest(aceConn, method, createRequestPayload(params), false)
+          .then((result) => normalizeClientResult(method, result))
+          .catch(() => null);
+        if (aceResult && Array.isArray(aceResult) && aceResult.length > 0) {
+          traceLsp('request route', { method, route: 'ace-response', resultCount: aceResult.length });
+          return aceResult;
+        }
+      }
       const text = openDocumentTexts.get(uri) ?? readFileText(uri);
-      traceLsp('request route', {
-        method,
-        route: 'proxy-fallback',
-        source: openDocumentTexts.has(uri) ? 'open-document' : 'disk',
-        hasText: Boolean(text),
-      });
+      traceLsp('request route', { method, route: 'proxy-fallback', hasText: Boolean(text) });
       return Promise.resolve(text ? parseDocumentSymbols(text) : []);
     }
 
     if (method === 'workspace/symbol') {
-      const { query, source, paramKeys } = extractWorkspaceSymbolQuery(params);
+      const { query } = extractWorkspaceSymbolQuery(params);
+      if (aceConn && isServerReady) {
+        const aceResult = await sendAceRequest(aceConn, method, createRequestPayload(params), false)
+          .then((result) => normalizeClientResult(method, result))
+          .catch(() => null);
+        if (aceResult && Array.isArray(aceResult) && aceResult.length > 0) {
+          traceLsp('request route', { method, route: 'ace-response', resultCount: aceResult.length });
+          return aceResult;
+        }
+      }
       const symbols = project ? parseWorkspaceSymbols(project.projectRoot, query) : [];
-      traceLsp('request route', {
-        method,
-        route: 'proxy-fallback',
-        hasProject: Boolean(project),
-        paramKeys,
-        querySource: source,
-        queryLength: query.length,
-        resultCount: symbols.length,
-      });
+      traceLsp('request route', { method, route: 'proxy-fallback', resultCount: symbols.length });
       return Promise.resolve(symbols);
     }
 
