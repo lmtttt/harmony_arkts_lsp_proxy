@@ -288,18 +288,31 @@ function createQueueToken(): string {
   return `arkts-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function isWsl(): boolean {
+  return process.platform === 'linux' && fs.existsSync('/proc/sys/fs/binfmt_misc/WSLInterop');
+}
+
+function wslToLinuxPath(windowsStylePath: string): string {
+  if (!isWsl()) return windowsStylePath;
+  const m = windowsStylePath.match(/^\/([A-Za-z]):\/(.*)$/);
+  if (m) {
+    return `/mnt/${m[1].toLowerCase()}/${m[2]}`;
+  }
+  return windowsStylePath;
+}
+
 function uriToFilePath(uri: unknown): string | null {
   if (typeof uri !== 'string' || !uri.length) {
     return null;
   }
   if (uri.startsWith('file://')) {
     try {
-      return fileURLToPath(uri);
+      return wslToLinuxPath(fileURLToPath(uri));
     } catch {
       return null;
     }
   }
-  return path.resolve(uri);
+  return wslToLinuxPath(path.resolve(uri));
 }
 
 function detectLanguageId(uri: string): string {
@@ -848,11 +861,8 @@ export function createProxy(
       : conn.sendRequest(method, params);
   }
 
-  function createAceConnection(proc: ChildProcess): MessageConnection {
-    if (!proc.stdout || !proc.stdin) {
-      throw new Error('aceProcess must have both stdout and stdin streams');
-    }
-    const conn = createMessageConnection(new StreamMessageReader(proc.stdout), new StreamMessageWriter(proc.stdin));
+  function createAceConnection(stdout: NodeJS.ReadableStream, stdin: NodeJS.WritableStream): MessageConnection {
+    const conn = createMessageConnection(new StreamMessageReader(stdout), new StreamMessageWriter(stdin));
 
     conn.onNotification((method, params) => {
       if (completePendingAceRequest(method, params)) {
@@ -945,7 +955,7 @@ export function createProxy(
 
       const handle = startAceServer(env);
       aceHandle = handle;
-      const conn = createAceConnection(handle.process);
+      const conn = createAceConnection(handle.filteredStdout, handle.process.stdin!);
       aceConn = conn;
       conn.listen();
       handle.onExit((code, signal) => {

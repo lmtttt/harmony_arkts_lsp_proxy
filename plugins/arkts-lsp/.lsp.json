@@ -1,9 +1,12 @@
 {
   "arkts": {
-    "command": "${CLAUDE_PLUGIN_DATA}/node_modules/.bin/arkts-lsp-proxy",
+    "command": "node ${CLAUDE_PLUGIN_ROOT}/../../dist/index.js",
     "extensionToLanguage": {
       ".ets": "arkts",
       ".d.ets": "arkts"
+    },
+    "env": {
+      "DEVECO_HOME": "/mnt/d/Program/DevEco Studio"
     }
   }
 }

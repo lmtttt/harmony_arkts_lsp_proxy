@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { Transform } from 'node:stream';
 import type { DevEcoEnv } from './env';
 import { toWindowsPath } from './env';
 
@@ -9,6 +10,7 @@ export type ExitHandler = (code: number | null, signal: string | null) => void;
 
 export interface AceServerHandle {
   process: ChildProcess;
+  filteredStdout: NodeJS.ReadableStream;
   kill: () => void;
   onExit: (handler: ExitHandler) => void;
   dispose: () => void;
@@ -19,6 +21,38 @@ function createLogDir(): string {
   const logDir = path.join(baseDir, Date.now().toString());
   fs.mkdirSync(logDir, { recursive: true });
   return logDir;
+}
+
+function createAceStdoutFilter(): Transform {
+  let buffer = '';
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      buffer += chunk.toString('utf8');
+      // Pass through only valid Content-Length-prefixed LSP messages;
+      // strip raw log lines that ace-server worker sometimes writes to stdout
+      while (true) {
+        const headerMatch = buffer.match(/^Content-Length: (\d+)\r\n\r\n/);
+        if (!headerMatch) {
+          const newlineIdx = buffer.indexOf('\n');
+          if (newlineIdx >= 0) {
+            // Skip this non-LSP line
+            const skipped = buffer.slice(0, newlineIdx + 1);
+            buffer = buffer.slice(newlineIdx + 1);
+            process.stderr.write(`[ace-stdout-filter] skipped: ${skipped.trim().slice(0, 200)}\n`);
+            continue;
+          }
+          break;
+        }
+        const contentLength = parseInt(headerMatch[1], 10);
+        const headerEnd = headerMatch[0].length;
+        if (buffer.length < headerEnd + contentLength) break;
+        const message = buffer.slice(0, headerEnd + contentLength);
+        buffer = buffer.slice(headerEnd + contentLength);
+        this.push(Buffer.from(message, 'utf8'));
+      }
+      callback();
+    },
+  });
 }
 
 export function startAceServer(env: DevEcoEnv): AceServerHandle {
@@ -46,6 +80,10 @@ export function startAceServer(env: DevEcoEnv): AceServerHandle {
     },
   });
 
+  // Filter stdout to strip non-LSP log output from ace-server worker
+  const stdoutFilter = createAceStdoutFilter();
+  const filteredStdout = child.stdout ? child.stdout.pipe(stdoutFilter) : child.stdout;
+
   const exitHandlers: ExitHandler[] = [];
 
   child.stderr?.on('data', (data: Buffer) => {
@@ -71,6 +109,7 @@ export function startAceServer(env: DevEcoEnv): AceServerHandle {
 
   return {
     process: child,
+    filteredStdout: filteredStdout || child.stdout!,
     kill: () => {
       if (child.exitCode === null) {
         child.kill();
