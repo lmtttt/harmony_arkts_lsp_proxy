@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import JSON5 from 'json5';
 import { pathToFileURL } from 'node:url';
+import { toWindowsPath } from './env';
 
 export interface AceModule {
   moduleName: string;
@@ -443,15 +444,24 @@ export function buildInitializationOptions(project: ProjectConfig): Record<strin
       ? firstModule.deviceType.map((type) => (typeof type === 'number' ? type : DEFAULT_DEVICE_TYPE))
       : [DEFAULT_DEVICE_TYPE];
 
+  // Convert paths to Windows format for ace-server (WSL2 cross-OS scenario)
+  const wsProjectRoot = toWindowsPath(project.projectRoot);
+  const wsLspWorkspace = toWindowsPath(project.lspServerWorkspacePath);
+
   return {
-    rootUri: project.rootUri,
-    lspServerWorkspacePath: project.lspServerWorkspacePath,
+    rootUri: `file:///${wsProjectRoot.replace(/\\/g, '/')}`,
+    lspServerWorkspacePath: wsLspWorkspace,
     clientType: 'vscode',
     projectType: project.projectType,
-    modules: project.modules,
+    modules: project.modules.map((mod) => ({
+      ...mod,
+      modulePath: toWindowsPath(mod.modulePath),
+      sdkJsPath: toWindowsPath(mod.sdkJsPath),
+      aceLoaderPath: toWindowsPath(mod.aceLoaderPath),
+    })),
     isCheckJs: true,
     deviceType: firstDeviceType,
-    indexingDataLocation: path.join(project.projectRoot, '.ide-arkts', 'indexing'),
+    indexingDataLocation: `${wsProjectRoot}\\.ide-arkts\\indexing`,
     completionSortSetting: { sortMode: 'normal' },
     inlayHintsSetting: {},
     lspMaxOldSpaceSize: 8192,
