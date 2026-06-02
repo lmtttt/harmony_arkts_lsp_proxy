@@ -253,16 +253,33 @@ function normalizeClientResult(method: string, result: unknown): unknown {
   return result;
 }
 
+// Ace falsely advertises these in its own capabilities but returns "Unhandled method" at runtime
+const ACE_FALSE_CAPABILITIES = new Set([
+  'colorProvider',
+  'declarationProvider',
+  'documentFormattingProvider',
+  'documentRangeFormattingProvider',
+  'linkedEditingRangeProvider',
+]);
+
 function addProxyCapabilities(result: unknown): unknown {
   if (!isPlainObject(result)) {
     return result;
   }
 
-  const capabilities = isPlainObject(result.capabilities) ? result.capabilities : {};
+  const rawCaps = isPlainObject(result.capabilities) ? result.capabilities : {};
+  // Strip ace's false capability claims
+  const aceCaps: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(rawCaps)) {
+    if (!ACE_FALSE_CAPABILITIES.has(key)) {
+      aceCaps[key] = value;
+    }
+  }
+
   return {
     ...result,
     capabilities: {
-      ...capabilities,
+      ...aceCaps,
       documentSymbolProvider: true,
       workspaceSymbolProvider: true,
       renameProvider: { prepareProvider: true },
@@ -275,11 +292,6 @@ function addProxyCapabilities(result: unknown): unknown {
       inlayHintProvider: true,
       foldingRangeProvider: true,
       selectionRangeProvider: true,
-      declarationProvider: true,
-      linkedEditingRangeProvider: true,
-      colorProvider: true,
-      documentFormattingProvider: true,
-      documentRangeFormattingProvider: true,
     },
   };
 }
