@@ -1077,6 +1077,47 @@ export function createProxy(
       return Promise.resolve(symbols);
     }
 
+    // foldingRange / selectionRange: proxy-only fallback (ace does not handle these)
+    if (method === 'textDocument/foldingRange') {
+      const uri = getTextDocumentUri(params);
+      const text = uri ? (openDocumentTexts.get(uri) ?? readFileText(uri)) : null;
+      if (!text) {
+        traceLsp('request route', { method, route: 'proxy-fallback', reason: 'no-text' });
+        return Promise.resolve([]);
+      }
+      const ranges: Array<{ startLine: number; endLine: number; kind?: string }> = [];
+      const lines = text.split(/\r?\n/);
+      let depth = 0;
+      const stack: Array<{ startLine: number; depth: number }> = [];
+      for (let i = 0; i < lines.length; i += 1) {
+        const masked = lines[i].replace(/(['"`])(?:(?!\1|\\)|\\.)*\1/g, '').replace(/\/\/.*/, '');
+        for (const ch of masked) {
+          if (ch === '{') {
+            stack.push({ startLine: i, depth });
+            depth += 1;
+          } else if (ch === '}') {
+            depth = Math.max(0, depth - 1);
+            const top = stack.pop();
+            if (top && top.depth === depth && i > top.startLine) {
+              ranges.push({ startLine: top.startLine, endLine: i, kind: 'region' });
+            }
+          }
+        }
+      }
+      traceLsp('request route', { method, route: 'proxy-fallback', resultCount: ranges.length });
+      return Promise.resolve(ranges);
+    }
+
+    if (method === 'textDocument/selectionRange') {
+      traceLsp('request route', { method, route: 'proxy-fallback' });
+      const positions = (params && Array.isArray(params.positions) ? params.positions : []) as Array<{ line: number; character: number }>;
+      const results = positions.map((pos) => ({
+        range: { start: pos, end: pos },
+        parent: null,
+      }));
+      return Promise.resolve(results);
+    }
+
     const mapped = mapRequest(method, params, openFiles);
     const targetMethod = mapped?.method ?? method;
     const targetParams = mapped?.params ?? createRequestPayload(params);
