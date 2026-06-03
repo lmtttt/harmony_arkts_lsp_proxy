@@ -202,7 +202,7 @@ function buildModuleConfig(
   buildProfile: BuildProfile,
   fallbackName: string,
 ): AceModule {
-  const moduleJsonPath = path.join(modulePath, 'module.json5');
+  const moduleJsonPath = path.join(modulePath, 'src', 'main', 'module.json5');
   const moduleDescriptor = readJson5(moduleJsonPath) as ModuleJson | null;
 
   const moduleName =
@@ -247,8 +247,8 @@ function buildModuleConfig(
     moduleDependencies,
     permissions,
     packageName: moduleDescriptor?.module?.name,
-    sdkJsPath: path.join(sdkPath, 'js', 'api', deviceName) + path.sep,
-    aceLoaderPath: path.join(sdkPath, 'js', 'framework', deviceName, 'ace-loader'),
+    sdkJsPath: path.join(sdkPath, 'openharmony', 'ets', 'api') + path.sep,
+    aceLoaderPath: path.join(sdkPath, 'openharmony', 'js', 'build-tools', 'ace-loader'),
   };
 }
 

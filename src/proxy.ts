@@ -880,12 +880,22 @@ export function createProxy(
       if (completePendingAceRequest(method, params)) {
         return;
       }
+      if (method === 'aceProject/onIndexingProgressUpdate') {
+        // Like deveco-cli: indexing is in progress, log and continue waiting
+        process.stderr.write('[arkts-lsp] ace indexing in progress...\n');
+        return;
+      }
       if (method === ACE_MODULE_INIT_METHOD) {
         if (isModuleInitSuccess(params)) {
           isServerReady = true;
+          process.stderr.write('[arkts-lsp] ace module init complete\n');
           flushQueues();
         } else {
-          process.stderr.write('[arkts-lsp] ace server module init reported failure, continue serving requests\n');
+          // Init reported failure but ace may still service requests in degraded mode
+          // (deveco-cli also accepts partial results after timeout)
+          process.stderr.write('[arkts-lsp] ace module init reported failure, serving in degraded mode\n');
+          isServerReady = true;
+          flushQueues();
         }
       }
       clientConn.sendNotification(method, params);
