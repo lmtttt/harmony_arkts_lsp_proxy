@@ -965,7 +965,7 @@ export function createProxy(
 
       scheduleHvigorSync(parsed.projectRoot);
 
-      const handle = startAceServer(env);
+      const handle = startAceServer(env, parsed.projectRoot);
       aceHandle = handle;
       const conn = createAceConnection(handle.filteredStdout, handle.process.stdin!);
       aceConn = conn;

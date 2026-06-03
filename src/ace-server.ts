@@ -16,25 +16,6 @@ export interface AceServerHandle {
   dispose: () => void;
 }
 
-function getWslSafeCwd(fallback: string): string {
-  if (process.platform !== 'linux' || !fs.existsSync('/proc/sys/fs/binfmt_misc/WSLInterop')) {
-    return fallback;
-  }
-  // Use a Windows-writable temp directory as cwd so ace worker can create log files
-  const candidate = path.join(os.homedir(), 'tmp', 'ace-logs');
-  if (fs.existsSync('/mnt/c/Windows')) {
-    const homeDir = os.homedir();
-    const match = homeDir.match(/^\/home\/(.+)$/);
-    if (match) {
-      const winHome = `/mnt/c/Users/${match[1]}/tmp/ace-logs`;
-      fs.mkdirSync(winHome, { recursive: true });
-      return winHome;
-    }
-  }
-  fs.mkdirSync(candidate, { recursive: true });
-  return candidate;
-}
-
 function createLogDir(): string {
   const baseDir = process.env.ARKTS_LSP_LOG_DIR || path.join(os.tmpdir(), 'arkts-lsp-proxy');
   const logDir = path.join(baseDir, Date.now().toString());
@@ -74,7 +55,7 @@ function createAceStdoutFilter(): Transform {
   });
 }
 
-export function startAceServer(env: DevEcoEnv): AceServerHandle {
+export function startAceServer(env: DevEcoEnv, projectRoot: string): AceServerHandle {
   process.stderr.write(`[arkts-lsp] Starting ace-server (stdio): ${env.aceServerPath}\n`);
   const logDir = createLogDir();
   process.stderr.write(`[arkts-lsp] ace-server logs: ${logDir}\n`);
@@ -92,7 +73,7 @@ export function startAceServer(env: DevEcoEnv): AceServerHandle {
   ], {
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
-    cwd: getWslSafeCwd(env.devecoHome),
+    cwd: projectRoot,
     env: {
       ...process.env,
       DEVECO_SDK_HOME: env.sdkPath,
